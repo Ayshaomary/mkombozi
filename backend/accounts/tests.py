@@ -58,6 +58,26 @@ class RegisterAndLoginTests(TestCase):
         self.assertEqual(response.status_code, 401)
 
 
+class SuperuserLoginTests(TestCase):
+    """createsuperuser saves the phone as typed; login must still work in every format."""
+
+    def setUp(self):
+        User.objects.create_superuser(phone='0712 345 678', password='Admin2026!', first_name='Admin')
+
+    def test_phone_is_stored_normalized(self):
+        self.assertTrue(User.objects.filter(phone='+255712345678').exists())
+
+    def test_api_login_with_local_format(self):
+        response = APIClient().post('/api/auth/login/', {'phone': '0712345678', 'password': 'Admin2026!'}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+
+    def test_admin_login_with_local_format(self):
+        response = self.client.post(
+            '/admin/login/?next=/admin/', {'username': '0712345678', 'password': 'Admin2026!'}
+        )
+        self.assertRedirects(response, '/admin/')
+
+
 class StaffTests(TestCase):
     def setUp(self):
         self.business, self.owner = make_business()

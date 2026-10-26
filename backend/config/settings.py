@@ -115,6 +115,7 @@ else:
 
 # Our own user model: people log in with their phone number
 AUTH_USER_MODEL = 'accounts.User'
+AUTHENTICATION_BACKENDS = ['accounts.backends.PhoneBackend']
 
 # Tests: use a fast (insecure) password hasher so the test suite runs quickly
 if 'test' in sys.argv:

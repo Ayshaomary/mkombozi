@@ -50,13 +50,17 @@ This creates the PostgreSQL user and database, using the password stored in `bac
 
 ### 2. Backend (terminal 1)
 
-```bash
-cd backend
-source venv/bin/activate          # turn on the virtual environment
-python manage.py migrate          # create/update database tables
-python manage.py createsuperuser  # once: an admin account (login with phone)
-python manage.py runserver        # API on http://127.0.0.1:8000
-```
+Run these **one at a time**: paste one line, press Enter, and wait for it to finish. If you paste them all at once, `createsuperuser` takes the next lines as its answers.
+
+| Step | Command | What it does |
+|---|---|---|
+| 1 | `cd ~/Documents/mkombozi/backend` | go to the backend folder |
+| 2 | `source venv/bin/activate` | turn on the virtual environment (you'll see `(venv)`) |
+| 3 | `python manage.py migrate` | create/update database tables |
+| 4 | `python manage.py createsuperuser` | **once only**: an admin account. It asks for phone, first name and password |
+| 5 | `python manage.py runserver` | start the API on http://127.0.0.1:8000 |
+
+> **Admin vs shop account.** The superuser is only for the admin panel (`/admin`). It doesn't belong to a business, so use the account you create with **Fungua akaunti** for the app itself. Use a **different phone number** for each: one number = one account.
 
 ### 3. Frontend (terminal 2)
 

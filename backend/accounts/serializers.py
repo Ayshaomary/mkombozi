@@ -83,7 +83,7 @@ class LoginSerializer(TokenObtainPairSerializer):
     """Login with phone + password. Also returns the user's details."""
 
     def validate(self, attrs):
-        attrs[self.username_field] = normalize_phone(attrs.get(self.username_field))
+        # Phone formats are normalized by accounts.backends.PhoneBackend
         data = super().validate(attrs)
         data['user'] = UserSerializer(self.user).data
         return data
