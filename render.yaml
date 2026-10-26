@@ -1,0 +1,63 @@
+# Render Blueprint: creates the database, the API and the website in one go.
+# Docs: https://render.com/docs/blueprint-spec
+
+databases:
+  - name: mukombozi-db
+    plan: free
+    region: frankfurt # closest Render region to Tanzania
+    databaseName: mukombozi
+    user: mukombozi
+    postgresMajorVersion: "16"
+
+services:
+  # Django API
+  - type: web
+    name: mukombozi-api
+    runtime: python
+    plan: free
+    region: frankfurt
+    rootDir: backend
+    buildCommand: ./build.sh
+    startCommand: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+    healthCheckPath: /api/subscription/plans/
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.3
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mukombozi-db
+          property: connectionString
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: "False"
+      # Requests from the website arrive through Render's proxy, from *.onrender.com
+      - key: DJANGO_ALLOWED_HOSTS
+        value: .onrender.com
+      # The admin account, created on the first deploy. Render asks you for these values.
+      - key: DJANGO_SUPERUSER_PHONE
+        sync: false
+      - key: DJANGO_SUPERUSER_FIRST_NAME
+        sync: false
+      - key: DJANGO_SUPERUSER_PASSWORD
+        sync: false
+
+  # React website
+  - type: web
+    name: mukombozi
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+    routes:
+      # Send API calls to Django. If Render gives the API a different address, change it here.
+      - type: rewrite
+        source: /api/*
+        destination: https://mukombozi-api.onrender.com/api/*
+      # Every other page is handled by React Router
+      - type: rewrite
+        source: /*
+        destination: /index.html
