@@ -65,6 +65,14 @@ class SaleTests(TestCase):
         self.assertEqual(len(response.data['results']), 1)
         self.assertEqual(response.data['total'], Decimal('7900'))
 
+    def test_list_is_newest_first(self):
+        # Record the older sale last, so database insert order differs from sale time order
+        self.sell([{'product': self.sugar.pk, 'quantity': '1'}], sold_at='2026-10-20T10:00:00+03:00')
+        self.sell([{'product': self.sugar.pk, 'quantity': '1'}], sold_at='2026-10-22T10:00:00+03:00')
+        self.sell([{'product': self.sugar.pk, 'quantity': '1'}], sold_at='2026-10-18T10:00:00+03:00')
+        receipts = [s['receipt_number'] for s in self.client.get('/api/sales/').data['results']]
+        self.assertEqual(receipts, ['R00002', 'R00001', 'R00003'])
+
     def test_receipt_numbers_increase(self):
         self.sell([{'product': self.sugar.pk, 'quantity': '1'}])
         response = self.sell([{'product': self.sugar.pk, 'quantity': '1'}])

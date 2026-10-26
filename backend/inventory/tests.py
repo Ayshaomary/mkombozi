@@ -48,6 +48,12 @@ class ProductTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(Product.objects.get(pk=product_id).stock_quantity, 20)
 
+    def test_categories_are_alphabetical(self):
+        for name in ['Vyakula', 'Usafi', 'Vinywaji']:
+            self.client.post('/api/categories/', {'name': name})
+        names = [c['name'] for c in self.client.get('/api/categories/').data]
+        self.assertEqual(names, ['Usafi', 'Vinywaji', 'Vyakula'])
+
     def test_low_stock_filter(self):
         self.create_product(name='Chumvi', opening_stock='2')
         self.create_product(name='Mchele', opening_stock='100')

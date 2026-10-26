@@ -19,7 +19,8 @@ from .services import change_stock
 
 
 class CategoryViewSet(BusinessScopedMixin, viewsets.ModelViewSet):
-    queryset = Category.objects.annotate(product_count=Count('products'))
+    # Django drops Meta.ordering on queries with Count(), so set the order again
+    queryset = Category.objects.annotate(product_count=Count('products')).order_by('name')
     serializer_class = CategorySerializer
     permission_classes = [HasBusiness, IsOwnerOrReadOnly, HasActiveSubscription]
     pagination_class = None

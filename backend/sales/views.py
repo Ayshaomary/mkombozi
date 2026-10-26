@@ -47,7 +47,8 @@ class SaleViewSet(
                 queryset = queryset.filter(
                     Q(receipt_number__icontains=search) | Q(customer_name__icontains=search)
                 )
-            queryset = queryset.annotate(item_count=Count('items'))
+            # Django drops Meta.ordering on queries with Count(), so set the order again
+            queryset = queryset.annotate(item_count=Count('items')).order_by(*Sale._meta.ordering)
         else:
             queryset = queryset.prefetch_related('items')
         return queryset
