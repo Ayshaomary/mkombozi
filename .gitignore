@@ -1,0 +1,21 @@
+# Secrets (passwords, keys) - never commit these
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Django
+staticfiles/
+media/
+
+# Node / frontend
+node_modules/
+dist/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+db.sqlite3
