@@ -135,3 +135,4 @@ mkombozi/
 3. **SMS / WhatsApp receipts** to customers.
 4. **Plan limits**, e.g. a maximum number of products or staff per plan.
 5. **Deployment** to a server (e.g. Railway, Render or a VPS) with `DEBUG=False`, HTTPS and daily database backups.
+# mkombozi
