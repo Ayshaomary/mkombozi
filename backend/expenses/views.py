@@ -1,3 +1,4 @@
+from django.db.models import Sum
 from rest_framework import viewsets
 
 from accounts.permissions import HasBusiness, IsOwnerOrCreateOnly
@@ -28,3 +29,9 @@ class ExpenseViewSet(BusinessScopedMixin, viewsets.ModelViewSet):
             if category := params.get('category'):
                 queryset = queryset.filter(category=category)
         return queryset
+
+    def list(self, request, *args, **kwargs):
+        response = super().list(request, *args, **kwargs)
+        # The total of ALL matching expenses, not just this page
+        response.data['total'] = self.get_queryset().aggregate(total=Sum('amount'))['total'] or 0
+        return response

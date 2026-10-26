@@ -17,6 +17,7 @@ class ExpenseTests(TestCase):
         response = self.client.get('/api/expenses/?start=2026-10-01&end=2026-10-31')
         self.assertEqual(response.data['count'], 1)
         self.assertEqual(response.data['results'][0]['category'], 'transport')
+        self.assertEqual(response.data['total'], 5000)
 
     def test_amount_must_be_positive(self):
         response = self.client.post('/api/expenses/', {'category': 'rent', 'amount': '-10'})

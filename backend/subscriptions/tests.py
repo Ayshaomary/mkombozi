@@ -22,7 +22,7 @@ class SubscriptionTests(TestCase):
         data = self.client.get('/api/subscription/').data
         self.assertEqual(data['status'], 'trial')
         self.assertTrue(data['is_valid'])
-        self.assertIn(data['days_left'], (13, 14))
+        self.assertEqual(data['days_left'], 14)
 
     def test_default_plans_exist(self):
         response = self.client.get('/api/subscription/plans/')
@@ -50,7 +50,7 @@ class SubscriptionTests(TestCase):
         subscription = Subscription.objects.get(business=self.business)
         self.assertEqual(subscription.status, 'active')
         self.assertTrue(subscription.is_valid)
-        self.assertIn(subscription.days_left, (29, 30))
+        self.assertEqual(subscription.days_left, 30)
 
     def test_paying_early_keeps_remaining_days(self):
         plan = Plan.objects.get(code='monthly')
@@ -59,4 +59,4 @@ class SubscriptionTests(TestCase):
         )
         payment.mark_completed()
         # 14 trial days left + 30 paid days
-        self.assertIn(Subscription.objects.get(business=self.business).days_left, (43, 44))
+        self.assertEqual(Subscription.objects.get(business=self.business).days_left, 44)

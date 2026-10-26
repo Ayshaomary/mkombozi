@@ -58,6 +58,13 @@ class SaleTests(TestCase):
         ])
         self.assertEqual(response.status_code, 400)
 
+    def test_list_includes_total_of_all_matching_sales(self):
+        self.sell([{'product': self.sugar.pk, 'quantity': '2'}])
+        self.sell([{'product': self.soap.pk, 'quantity': '1'}], payment_method='cash')
+        response = self.client.get('/api/sales/?period=today&page_size=1')
+        self.assertEqual(len(response.data['results']), 1)
+        self.assertEqual(response.data['total'], Decimal('7900'))
+
     def test_receipt_numbers_increase(self):
         self.sell([{'product': self.sugar.pk, 'quantity': '1'}])
         response = self.sell([{'product': self.sugar.pk, 'quantity': '1'}])

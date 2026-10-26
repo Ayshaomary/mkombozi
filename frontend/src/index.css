@@ -1,0 +1,97 @@
+@import 'tailwindcss';
+
+/* Colors are defined once here. Light mode by default, dark mode follows the phone/computer setting. */
+:root {
+  color-scheme: light;
+  --page: #f6f6f3;
+  --card: #ffffff;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #6f6d68;
+  --line: #e1e0d9;
+  --line-strong: #c3c2b7;
+  --soft: #f0efec;
+  --brand: #15803d;
+  --brand-hover: #166534;
+  --brand-soft: #dcfce7;
+  --brand-ink: #14532d;
+  --good: #006300;
+  --bad: #c42b2b;
+  --bad-soft: #fde8e8;
+  --warn-soft: #fef3c7;
+  --warn-ink: #78350f;
+  --chart-1: #2a78d6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --card: #1a1a19;
+    --ink: #f0efec;
+    --ink-2: #c3c2b7;
+    --muted: #9a9890;
+    --line: #2c2c2a;
+    --line-strong: #383835;
+    --soft: #262624;
+    --brand: #15803d;
+    --brand-hover: #16a34a;
+    --brand-soft: #14532d;
+    --brand-ink: #bbf7d0;
+    --good: #22c55e;
+    --bad: #f06767;
+    --bad-soft: #3b1818;
+    --warn-soft: #3a2a0a;
+    --warn-ink: #fcd34d;
+    --chart-1: #3987e5;
+  }
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-soft: var(--soft);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-ink: var(--brand-ink);
+  --color-good: var(--good);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-warn-soft: var(--warn-soft);
+  --color-warn-ink: var(--warn-ink);
+  --color-chart-1: var(--chart-1);
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+body {
+  background: var(--page);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* When printing a receipt, print only the receipt */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+    color: #000 !important;
+  }
+  .print-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+  }
+}

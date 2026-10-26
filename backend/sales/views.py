@@ -1,4 +1,4 @@
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Sum
 from rest_framework import mixins, status, viewsets
 from rest_framework.response import Response
 
@@ -51,6 +51,12 @@ class SaleViewSet(
         else:
             queryset = queryset.prefetch_related('items')
         return queryset
+
+    def list(self, request, *args, **kwargs):
+        response = super().list(request, *args, **kwargs)
+        # The total of ALL matching sales, not just this page
+        response.data['total'] = self.get_queryset().aggregate(total=Sum('total_amount'))['total'] or 0
+        return response
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

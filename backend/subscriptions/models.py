@@ -1,3 +1,4 @@
+import math
 import uuid
 from datetime import timedelta
 
@@ -57,8 +58,9 @@ class Subscription(models.Model):
 
     @property
     def days_left(self):
-        remaining = self.current_period_end - timezone.now()
-        return max(remaining.days, 0)
+        # Round up, so a new 14-day trial shows 14 days, not 13 days and 23 hours
+        seconds = (self.current_period_end - timezone.now()).total_seconds()
+        return max(math.ceil(seconds / 86400), 0)
 
 
 class SubscriptionPayment(models.Model):
