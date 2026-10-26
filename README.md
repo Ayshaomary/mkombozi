@@ -128,11 +128,38 @@ mkombozi/
 | `GET reports/dashboard/` · `GET reports/summary/` | Dashboard · profit & loss report |
 | `GET subscription/` · `GET subscription/plans/` · `subscription/payments/` | Subscription |
 
+## Putting it online with Render
+
+`render.yaml` (a Render "Blueprint") creates 3 things in the Frankfurt region, the closest to Tanzania:
+
+| Name | What | Notes |
+|---|---|---|
+| `mukombozi-db` | PostgreSQL 16 database | |
+| `mukombozi-api` | Django API, run by gunicorn | `backend/build.sh` installs packages, collects static files, migrates and creates the admin account |
+| `mukombozi` | React website (static site) | forwards `/api/*` to `mukombozi-api`, so no CORS setup is needed |
+
+### Steps
+
+1. Push your code: `git push`
+2. Go to **https://render.com**, sign up with your GitHub account, and allow Render to see the `mkombozi` repository.
+3. In the Render dashboard, click **New → Blueprint** and choose the `mkombozi` repository.
+4. Render asks for 3 values for the admin account: `DJANGO_SUPERUSER_PHONE` (e.g. `0695517348`), `DJANGO_SUPERUSER_FIRST_NAME` and `DJANGO_SUPERUSER_PASSWORD`. Fill them in and click **Apply**.
+5. Wait 5–10 minutes for the first deploy. Then open the `mukombozi` service and click its URL (e.g. `https://mukombozi.onrender.com`).
+
+> **Check the API address.** `render.yaml` assumes the API's address is `https://mukombozi-api.onrender.com`. If Render gives it a different address (because the name is taken), change the `destination` line in `render.yaml` to match, then commit and push.
+
+After that, every `git push` to `main` deploys again automatically.
+
+### Free plan limits (checked October 2026; see render.com/pricing)
+
+- **The free database expires after 30 days.** After a 14-day grace period it's **deleted with all its data**. Use the free plan only for testing. Upgrade the database before real shops use the app.
+- **The free API sleeps after 15 minutes** without visitors. The next visit takes about a minute to wake it up.
+- The static website is free and doesn't sleep.
+
 ## Next steps (ideas)
 
 1. **Mobile money payments.** Connect a payment aggregator (e.g. Selcom, AzamPay, ClickPesa) in `subscriptions/views.py`, so payments confirm automatically instead of by an admin.
 2. **Customer credit (madeni).** Track who owes money for sales paid on credit.
 3. **SMS / WhatsApp receipts** to customers.
 4. **Plan limits**, e.g. a maximum number of products or staff per plan.
-5. **Deployment** to a server (e.g. Railway, Render or a VPS) with `DEBUG=False`, HTTPS and daily database backups.
-# mkombozi
+5. **Daily database backups** and a custom domain (e.g. `mukombozi.co.tz`).

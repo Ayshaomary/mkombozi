@@ -54,6 +54,15 @@ if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    # Tell browsers to only use HTTPS for this site (30 days)
+    SECURE_HSTS_SECONDS = 60 * 60 * 24 * 30
+
+SILENCED_SYSTEM_CHECKS = [
+    # Render already redirects http:// to https:// before requests reach Django
+    'security.W008',
+    # The app sends no email yet; configure a real email backend before adding email features
+    'mail.E001',
+]
 
 
 # Application definition
