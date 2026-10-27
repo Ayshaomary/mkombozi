@@ -203,6 +203,9 @@ if 'test' in sys.argv:
     STORAGES['staticfiles'] = {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'}
 
 
+# Where the React app is, for the link on the backend's home page
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
+
 # CORS: which frontend addresses may call this API (Vite runs on port 5173)
 CORS_ALLOWED_ORIGINS = os.environ.get(
     'CORS_ALLOWED_ORIGINS', 'http://localhost:5173'

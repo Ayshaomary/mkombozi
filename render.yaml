@@ -34,6 +34,9 @@ services:
       # Requests from the website arrive through Render's proxy, from *.onrender.com
       - key: DJANGO_ALLOWED_HOSTS
         value: .onrender.com
+      # Link on the API's home page. If Render gives the website a different address, change it here.
+      - key: FRONTEND_URL
+        value: https://mukombozi.onrender.com
       # The admin account, created on the first deploy. Render asks you for these values.
       - key: DJANGO_SUPERUSER_PHONE
         sync: false
