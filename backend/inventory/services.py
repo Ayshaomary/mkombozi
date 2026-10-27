@@ -1,6 +1,8 @@
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
+from notifications.services import notify_stock_drop
+
 from .models import Product, StockMovement
 
 
@@ -12,7 +14,8 @@ def change_stock(product, quantity, movement_type, user=None, note=''):
     the same moment cannot both sell the last one.
     """
     product = Product.objects.select_for_update().get(pk=product.pk)
-    new_quantity = product.stock_quantity + quantity
+    old_quantity = product.stock_quantity
+    new_quantity = old_quantity + quantity
     if new_quantity < 0:
         raise ValidationError(
             {'quantity': f'Not enough stock for "{product.name}". Available: {product.stock_quantity}.'}
@@ -28,4 +31,5 @@ def change_stock(product, quantity, movement_type, user=None, note=''):
         note=note,
         created_by=user,
     )
+    notify_stock_drop(product, old_quantity, new_quantity)
     return product

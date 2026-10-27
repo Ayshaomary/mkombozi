@@ -25,6 +25,8 @@ const PATHS = {
   users: 'M16 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M9.5 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM21 20v-1a4 4 0 0 0-3-3.9M16 4.1a3.5 3.5 0 0 1 0 6.8',
   tag: 'M3 12V3h9l9 9-9 9zM7.5 7.5h.01',
   stack: 'M12 3 3 8l9 5 9-5zM3 13l9 5 9-5',
+  bell: 'M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0',
+  repeat: 'M17 2l4 4-4 4M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 0 1-4 4H3',
 }
 
 export default function Icon({ name, size = 20, className = '', strokeWidth = 2 }) {

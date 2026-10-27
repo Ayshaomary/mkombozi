@@ -4,8 +4,9 @@ from django.contrib import admin
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from expenses.views import ExpenseViewSet
+from expenses.views import ExpenseViewSet, RecurringExpenseViewSet
 from inventory.views import CategoryViewSet, ProductViewSet, StockMovementViewSet
+from notifications.views import NotificationViewSet
 from sales.views import SaleViewSet
 
 router = DefaultRouter()
@@ -14,6 +15,8 @@ router.register('products', ProductViewSet, basename='product')
 router.register('stock-movements', StockMovementViewSet, basename='stock-movement')
 router.register('sales', SaleViewSet, basename='sale')
 router.register('expenses', ExpenseViewSet, basename='expense')
+router.register('recurring-expenses', RecurringExpenseViewSet, basename='recurring-expense')
+router.register('notifications', NotificationViewSet, basename='notification')
 
 admin.site.site_header = 'MUKOMBOZI Admin'
 admin.site.site_title = 'MUKOMBOZI'

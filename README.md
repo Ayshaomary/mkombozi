@@ -22,6 +22,23 @@ A web app for small businesses in Tanzania: record sales, track expenses, manage
 - **Subscriptions.** A 14-day free trial and 3 plans (monthly, quarterly, yearly). When a subscription ends, the business can still view its data but can't add new records.
 - **Languages.** Kiswahili (default) and English. Works on phones, and supports dark mode.
 
+### Automation
+
+- **Recurring expenses.** The owner sets an expense once (e.g. rent TZS 150,000 every month from the 1st), and it's recorded automatically when due. These show an **Otomatiki** badge. If the first date is in the past, missed dates are filled in, up to one year back.
+- **Notifications (🔔).**
+  - **Low stock / out of stock:** for everyone, the moment stock crosses the warning level or reaches zero.
+  - **Daily summary of yesterday:** owner only.
+  - **Subscription reminders** at 7, 3 and 1 days before the end, and when it ends: owner only.
+  - **Recurring expense recorded:** owner only.
+
+**How the automatic tasks run.** They don't need a server timer. Whenever someone from the business opens the app, missed work is caught up, at most once every 15 minutes. This works on Render's free plan, where the server sleeps. Every task is safe to repeat: nothing is recorded or notified twice. Optionally, a scheduled job (cron) can also run them every morning:
+
+```bash
+python manage.py run_automations
+```
+
+SMS/WhatsApp alerts can be added later in `notifications/services.py → notify()`, the single place every alert goes through.
+
 ## How profit is calculated
 
 ```
@@ -99,6 +116,7 @@ mkombozi/
 │   ├── expenses/        # Expense
 │   ├── reports/         # dashboard and profit & loss (no tables of its own)
 │   ├── subscriptions/   # Plan, Subscription (trial), SubscriptionPayment
+│   ├── notifications/   # Notification, notify(), automations.py (scheduled tasks), run_automations command
 │   ├── scripts/setup_db.sh
 │   ├── .env             # secrets - NEVER commit (already in .gitignore)
 │   └── .env.example     # list of settings, safe to commit
@@ -125,6 +143,8 @@ mkombozi/
 | `GET stock-movements/?product=<id>` | Stock history |
 | `sales/` | Record and list sales. Filters: `?period=today\|week\|month\|year` or `?start=&end=` |
 | `expenses/` | Expenses, with the same date filters |
+| `recurring-expenses/` | Repeating expenses (owner only) |
+| `GET notifications/` · `POST notifications/<id>/read/` · `POST notifications/read-all/` | Notifications. Opening the list also runs the automatic tasks |
 | `GET reports/dashboard/` · `GET reports/summary/` | Dashboard · profit & loss report |
 | `GET subscription/` · `GET subscription/plans/` · `subscription/payments/` | Subscription |
 

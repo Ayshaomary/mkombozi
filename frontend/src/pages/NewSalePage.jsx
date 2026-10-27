@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import Icon from '../components/Icon'
+import { useNotifications } from '../components/Notifications'
 import { Badge, Button, Card, EmptyState, ErrorBox, Input, Loading, Modal, PageHeader, Select } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
@@ -86,6 +87,7 @@ export default function NewSalePage() {
   const [saving, setSaving] = useState(false)
   const [receipt, setReceipt] = useState(null)
   const cartRef = useRef(null)
+  const notifications = useNotifications()
 
   const addToCart = (product) => {
     setError(null)
@@ -132,6 +134,8 @@ export default function NewSalePage() {
       setShowDetails(false)
       setPaymentMethod('cash')
       products.reload()
+      // The sale may have triggered a low-stock alert
+      notifications.refresh()
     } catch (err) {
       setError(err)
     } finally {

@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Icon from '../components/Icon'
-import { Button, Card, EmptyState, ErrorBox, Input, Loading, Modal, PageHeader, PeriodFilter, Select } from '../components/ui'
+import { useNotifications } from '../components/Notifications'
+import { Badge, Button, Card, EmptyState, ErrorBox, Input, Loading, Modal, PageHeader, PeriodFilter, Select } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { api } from '../lib/api'
 import { EXPENSE_CATEGORIES } from '../lib/constants'
 import { formatDate, formatMoney, todayISO } from '../lib/format'
-import { usePaginated } from '../lib/useApi'
+import { useApi, usePaginated } from '../lib/useApi'
 
 function ExpenseFormModal({ expense, onClose, onSaved }) {
   const { t } = useLanguage()
@@ -87,6 +88,112 @@ function ExpenseFormModal({ expense, onClose, onSaved }) {
   )
 }
 
+const FREQUENCIES = ['monthly', 'weekly', 'daily']
+
+function RecurringExpensesModal({ onClose, onChanged }) {
+  const { t, lang } = useLanguage()
+  const { data, error, reload } = useApi('/recurring-expenses/')
+  const [form, setForm] = useState({ category: 'rent', amount: '', frequency: 'monthly', start_date: todayISO(), description: '' })
+  const [formError, setFormError] = useState(null)
+  const [saving, setSaving] = useState(false)
+
+  const field = (name) => ({
+    value: form[name],
+    onChange: (e) => setForm({ ...form, [name]: e.target.value }),
+    error: formError?.fields?.[name],
+  })
+
+  const changed = () => {
+    reload()
+    onChanged()
+  }
+
+  const add = async (event) => {
+    event.preventDefault()
+    setSaving(true)
+    setFormError(null)
+    try {
+      await api.post('/recurring-expenses/', form)
+      setForm({ ...form, amount: '', description: '' })
+      changed()
+    } catch (err) {
+      setFormError(err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const toggle = async (recurring) => {
+    await api.patch(`/recurring-expenses/${recurring.id}/`, { is_active: !recurring.is_active }).catch(setFormError)
+    changed()
+  }
+
+  const remove = async (recurring) => {
+    if (!window.confirm(t('recurring.deleteConfirm'))) return
+    await api.delete(`/recurring-expenses/${recurring.id}/`).catch(setFormError)
+    changed()
+  }
+
+  return (
+    <Modal open onClose={onClose} title={t('recurring.title')} wide>
+      <form onSubmit={add} className="space-y-3 rounded-xl bg-soft p-4">
+        <p className="text-sm font-semibold text-ink">{t('recurring.add')}</p>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Select
+            label={t('expense.category')}
+            options={EXPENSE_CATEGORIES.map((c) => ({ value: c, label: t(`expenseCategory.${c}`) }))}
+            {...field('category')}
+          />
+          <Input label={t('common.amount')} type="number" min="0" step="any" inputMode="decimal" required {...field('amount')} />
+          <Select
+            label={t('recurring.frequency')}
+            options={FREQUENCIES.map((f) => ({ value: f, label: t(`frequency.${f}`) }))}
+            {...field('frequency')}
+          />
+          <Input label={t('recurring.startDate')} type="date" required {...field('start_date')} />
+        </div>
+        <Input label={`${t('expense.description')} (${t('common.optional')})`} {...field('description')} />
+        <p className="text-xs text-ink-2">{t('recurring.hint')}</p>
+        {formError && Object.keys(formError.fields).length === 0 && <ErrorBox error={formError} />}
+        <Button type="submit" icon="plus" loading={saving}>
+          {t('common.add')}
+        </Button>
+      </form>
+
+      <ErrorBox error={error} onRetry={reload} />
+      {!data ? (
+        <Loading />
+      ) : data.length === 0 ? (
+        <EmptyState icon="repeat" title={t('recurring.empty')} />
+      ) : (
+        <ul className="mt-2 divide-y divide-line">
+          {data.map((recurring) => (
+            <li key={recurring.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+              <div className="min-w-0">
+                <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-ink">
+                  {t(`expenseCategory.${recurring.category}`)} · {formatMoney(recurring.amount)}
+                  {!recurring.is_active && <Badge>{t('recurring.paused')}</Badge>}
+                </p>
+                <p className="text-xs text-muted">
+                  {t(`frequency.${recurring.frequency}`)}
+                  {recurring.is_active && ` · ${t('recurring.next', { date: formatDate(recurring.next_date, lang) })}`}
+                  {recurring.description && ` · ${recurring.description}`}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="secondary" onClick={() => toggle(recurring)}>
+                  {recurring.is_active ? t('recurring.pause') : t('recurring.resume')}
+                </Button>
+                <Button size="sm" variant="danger" icon="trash" onClick={() => remove(recurring)} aria-label={t('common.delete')} />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Modal>
+  )
+}
+
 export default function ExpensesPage() {
   const { t, lang } = useLanguage()
   const { isOwner } = useAuth()
@@ -94,6 +201,8 @@ export default function ExpensesPage() {
   const [period, setPeriod] = useState('month')
   const [category, setCategory] = useState('')
   const [editing, setEditing] = useState(() => (searchParams.get('add') === '1' ? {} : null))
+  const [showRecurring, setShowRecurring] = useState(false)
+  const notifications = useNotifications()
 
   const expenses = usePaginated('/expenses/', { period: period === 'all' ? '' : period, category })
 
@@ -117,9 +226,16 @@ export default function ExpensesPage() {
       <PageHeader
         title={t('expense.title')}
         actions={
-          <Button icon="plus" onClick={() => setEditing({})}>
-            {t('expense.add')}
-          </Button>
+          <>
+            {isOwner && (
+              <Button variant="secondary" icon="repeat" onClick={() => setShowRecurring(true)}>
+                {t('recurring.title')}
+              </Button>
+            )}
+            <Button icon="plus" onClick={() => setEditing({})}>
+              {t('expense.add')}
+            </Button>
+          </>
         }
       />
 
@@ -155,7 +271,10 @@ export default function ExpensesPage() {
             {expenses.items.map((expense) => (
               <li key={expense.id} className="flex items-center justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-ink">{t(`expenseCategory.${expense.category}`)}</p>
+                  <p className="flex items-center gap-2 text-sm font-medium text-ink">
+                    {t(`expenseCategory.${expense.category}`)}
+                    {expense.is_recurring && <Badge tone="good">{t('recurring.auto')}</Badge>}
+                  </p>
                   <p className="truncate text-xs text-muted">
                     {formatDate(expense.date, lang)}
                     {expense.description && ` · ${expense.description}`}
@@ -197,6 +316,16 @@ export default function ExpensesPage() {
             {t('common.loadMore')}
           </Button>
         </div>
+      )}
+
+      {showRecurring && (
+        <RecurringExpensesModal
+          onClose={() => setShowRecurring(false)}
+          onChanged={() => {
+            expenses.reload()
+            notifications.refresh()
+          }}
+        />
       )}
 
       {editing && (

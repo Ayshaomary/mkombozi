@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import Icon from './Icon'
+import { NotificationBell, NotificationsProvider } from './Notifications'
 
 const NAV_ITEMS = [
   { to: '/', icon: 'home', label: 'nav.dashboard', ownerOnly: true, end: true },
@@ -116,18 +117,22 @@ function SubscriptionBanner() {
   )
 }
 
-export default function Layout() {
+// The page frame: sidebar, phone menu, banner and the current page
+function Shell() {
   const { t } = useLanguage()
   const [menuOpen, setMenuOpen] = useState(false)
 
   return (
     <div className="min-h-screen md:flex">
       {/* Sidebar on computers */}
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col justify-between border-r border-line bg-card p-4 md:flex">
+      <aside className="sticky top-0 z-30 hidden h-screen w-60 shrink-0 flex-col justify-between border-r border-line bg-card p-4 md:flex">
         <div>
-          <Link to="/" className="mb-6 block px-2">
-            <Logo />
-          </Link>
+          <div className="mb-6 flex items-center justify-between pl-2">
+            <Link to="/">
+              <Logo />
+            </Link>
+            <NotificationBell align="left" />
+          </div>
           <NavList />
         </div>
         <UserBox />
@@ -138,13 +143,16 @@ export default function Layout() {
         <Link to="/">
           <Logo />
         </Link>
-        <button
-          onClick={() => setMenuOpen(true)}
-          className="rounded-lg p-2 text-ink-2 hover:bg-soft"
-          aria-label={t('nav.menu')}
-        >
-          <Icon name="menu" />
-        </button>
+        <div className="flex items-center gap-1">
+          <NotificationBell />
+          <button
+            onClick={() => setMenuOpen(true)}
+            className="rounded-lg p-2 text-ink-2 hover:bg-soft"
+            aria-label={t('nav.menu')}
+          >
+            <Icon name="menu" />
+          </button>
+        </div>
       </header>
 
       {/* Slide-out menu on phones */}
@@ -177,5 +185,13 @@ export default function Layout() {
         </main>
       </div>
     </div>
+  )
+}
+
+export default function Layout() {
+  return (
+    <NotificationsProvider>
+      <Shell />
+    </NotificationsProvider>
   )
 }

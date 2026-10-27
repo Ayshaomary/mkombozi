@@ -11,6 +11,8 @@ class Business(models.Model):
     phone = models.CharField(max_length=20, blank=True)
     location = models.CharField(max_length=150, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    # When the automatic tasks (recurring expenses, alerts) last ran for this business
+    automations_ran_at = models.DateTimeField(null=True, blank=True, editable=False)
 
     class Meta:
         verbose_name_plural = 'businesses'

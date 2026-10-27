@@ -1,13 +1,15 @@
 from django.db.models import Sum
+from django.utils import timezone
 from rest_framework import viewsets
 
-from accounts.permissions import HasBusiness, IsOwnerOrCreateOnly
+from accounts.permissions import HasBusiness, IsOwner, IsOwnerOrCreateOnly
 from accounts.scoping import BusinessScopedMixin
 from reports.dates import date_range_from_params
 from subscriptions.permissions import HasActiveSubscription
 
-from .models import Expense
-from .serializers import ExpenseSerializer
+from .models import Expense, RecurringExpense
+from .serializers import ExpenseSerializer, RecurringExpenseSerializer
+from .services import process_recurring_expenses
 
 
 class ExpenseViewSet(BusinessScopedMixin, viewsets.ModelViewSet):
@@ -35,3 +37,21 @@ class ExpenseViewSet(BusinessScopedMixin, viewsets.ModelViewSet):
         # The total of ALL matching expenses, not just this page
         response.data['total'] = self.get_queryset().aggregate(total=Sum('amount'))['total'] or 0
         return response
+
+
+class RecurringExpenseViewSet(BusinessScopedMixin, viewsets.ModelViewSet):
+    """Expenses that repeat (rent, salaries...). Only the owner manages them."""
+
+    queryset = RecurringExpense.objects.all()
+    serializer_class = RecurringExpenseSerializer
+    permission_classes = [HasBusiness, IsOwner, HasActiveSubscription]
+    pagination_class = None
+
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+        # If it's already due (e.g. starts today), record it straight away
+        recurring = serializer.instance
+        process_recurring_expenses(
+            recurring.business, timezone.localdate(), RecurringExpense.objects.filter(pk=recurring.pk)
+        )
+        recurring.refresh_from_db()
