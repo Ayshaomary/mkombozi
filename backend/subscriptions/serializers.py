@@ -2,7 +2,7 @@ import re
 
 from rest_framework import serializers
 
-from accounts.utils import normalize_phone
+from accounts.serializers import clean_phone
 
 from . import sonicpesa
 from .models import Plan, Subscription, SubscriptionPayment
@@ -42,7 +42,7 @@ class SubscriptionPaymentSerializer(serializers.ModelSerializer):
         return bool(payment.gateway_order_id)
 
     def validate_phone(self, value):
-        return normalize_phone(value)
+        return clean_phone(value)
 
     def validate(self, attrs):
         # Mobile money needs a real Tanzanian number, e.g. 0712 345 678

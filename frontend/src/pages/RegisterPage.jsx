@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Button, ErrorBox, Input } from '../components/ui'
+import { Button, ErrorBox, Input, PhoneInput } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import AuthShell from './AuthShell'
@@ -51,10 +51,8 @@ export default function RegisterPage() {
           <Input label={t('auth.firstName')} autoComplete="given-name" required {...field('first_name')} />
           <Input label={t('auth.lastName')} autoComplete="family-name" {...field('last_name')} />
         </div>
-        <Input
+        <PhoneInput
           label={t('auth.phone')}
-          type="tel"
-          inputMode="tel"
           autoComplete="username"
           placeholder={t('auth.phonePlaceholder')}
           required

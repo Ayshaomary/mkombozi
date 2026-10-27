@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import Icon from '../components/Icon'
-import { Badge, Button, Card, EmptyState, ErrorBox, Input, Loading, Modal, PageHeader, SegmentedControl } from '../components/ui'
+import { Badge, Button, Card, EmptyState, ErrorBox, Input, Loading, Modal, PageHeader, PhoneInput, SegmentedControl } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { api } from '../lib/api'
@@ -96,7 +96,7 @@ function BusinessForm() {
     <Card title={t('settings.business')}>
       <form onSubmit={submit} className="space-y-4">
         <Input label={t('auth.businessName')} required {...field('name')} />
-        <Input label={t('settings.businessPhone')} type="tel" inputMode="tel" {...field('phone')} />
+        <PhoneInput label={t('settings.businessPhone')} {...field('phone')} />
         <Input label={t('auth.businessLocation')} {...field('location')} />
         <SaveRow {...state} />
       </form>
@@ -175,7 +175,7 @@ function AddStaffModal({ onClose, onSaved }) {
           <Input label={t('auth.firstName')} required autoFocus {...field('first_name')} />
           <Input label={t('auth.lastName')} {...field('last_name')} />
         </div>
-        <Input label={t('auth.phone')} type="tel" inputMode="tel" placeholder={t('auth.phonePlaceholder')} required {...field('phone')} />
+        <PhoneInput label={t('auth.phone')} placeholder={t('auth.phonePlaceholder')} required {...field('phone')} />
         <Input
           label={t('auth.password')}
           type="password"

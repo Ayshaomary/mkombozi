@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import Icon from '../components/Icon'
-import { Badge, Button, Card, EmptyState, ErrorBox, Input, Loading, Modal, PageHeader, Select, Spinner } from '../components/ui'
+import { Badge, Button, Card, EmptyState, ErrorBox, Loading, Modal, PageHeader, PhoneInput, Select, Spinner } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { api } from '../lib/api'
@@ -170,10 +170,8 @@ function PayModal({ plan, onClose, onDone }) {
           onChange={(e) => setForm({ ...form, provider: e.target.value })}
           options={SUBSCRIPTION_PROVIDERS.map((p) => ({ value: p, label: t(`payment.${p}`) }))}
         />
-        <Input
+        <PhoneInput
           label={t('subscription.payPhone')}
-          type="tel"
-          inputMode="tel"
           value={form.phone}
           onChange={(e) => setForm({ ...form, phone: e.target.value })}
           error={error?.fields?.phone}

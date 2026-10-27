@@ -64,6 +64,45 @@ export function Input({ label, error, hint, className, ...props }) {
   )
 }
 
+// Same rule as accounts/utils.py on the server: 10 digits without a country code (0712 345 678),
+// 12 with Tanzania's (+255 712 345 678), 15 with any other (the international maximum)
+function phoneDigitLimit(value) {
+  const start = value.replace(/[\s\-()]/g, '')
+  if (/^\+?255/.test(start)) return 12
+  return start.startsWith('+') ? 15 : 10
+}
+
+// Keeps digits up to the limit, spaces and dashes, and a "+" only at the start
+function limitPhone(value) {
+  const maxDigits = phoneDigitLimit(value)
+  let digits = 0
+  let result = ''
+  for (const char of value) {
+    if (/\d/.test(char)) {
+      if (digits === maxDigits) continue
+      digits += 1
+    } else if (!(char === '+' && result.trim() === '') && !/[\s\-()]/.test(char)) {
+      continue
+    }
+    result += char
+  }
+  return result
+}
+
+export function PhoneInput({ onChange, ...props }) {
+  return (
+    <Input
+      type="tel"
+      inputMode="tel"
+      {...props}
+      onChange={(e) => {
+        e.target.value = limitPhone(e.target.value)
+        onChange(e)
+      }}
+    />
+  )
+}
+
 export function Select({ label, error, hint, options, className, ...props }) {
   const id = useId()
   return (

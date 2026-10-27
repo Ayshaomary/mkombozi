@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Button, ErrorBox, Input } from '../components/ui'
+import { Button, ErrorBox, Input, PhoneInput } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import AuthShell from './AuthShell'
@@ -31,10 +31,8 @@ export default function LoginPage() {
     <AuthShell title={t('auth.welcomeBack')}>
       <form onSubmit={submit} className="space-y-4">
         <ErrorBox error={error} />
-        <Input
+        <PhoneInput
           label={t('auth.phone')}
-          type="tel"
-          inputMode="tel"
           autoComplete="username"
           placeholder={t('auth.phonePlaceholder')}
           value={phone}

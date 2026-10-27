@@ -3,7 +3,7 @@ from decimal import Decimal
 from rest_framework import serializers
 
 from accounts.scoping import BusinessScopedPrimaryKeyRelatedField
-from accounts.utils import normalize_phone
+from accounts.serializers import clean_phone
 from inventory.models import Product
 
 from .models import Sale, SaleItem
@@ -45,7 +45,7 @@ class SaleSerializer(serializers.ModelSerializer):
         return value
 
     def validate_customer_phone(self, value):
-        return normalize_phone(value) if value else value
+        return clean_phone(value) if value else value
 
 
 class SaleListSerializer(serializers.ModelSerializer):

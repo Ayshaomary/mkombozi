@@ -7,7 +7,14 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from subscriptions.models import Subscription
 
 from .models import Business, User
-from .utils import normalize_phone
+from .utils import normalize_phone, phone_too_long
+
+
+def clean_phone(value):
+    """Check the number isn't too long, then store it in the standard +255 format."""
+    if phone_too_long(value):
+        raise serializers.ValidationError('Phone number is too long. Use 10 digits, e.g. 0712 345 678.')
+    return normalize_phone(value)
 
 
 def tokens_for(user):
@@ -22,7 +29,7 @@ class BusinessSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at']
 
     def validate_phone(self, value):
-        return normalize_phone(value)
+        return clean_phone(value)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -38,7 +45,7 @@ class PhoneField(serializers.CharField):
     """A phone number field that stores numbers in one standard format."""
 
     def to_internal_value(self, data):
-        phone = normalize_phone(super().to_internal_value(data))
+        phone = clean_phone(super().to_internal_value(data))
         if len(phone) < 9:
             raise serializers.ValidationError('Enter a valid phone number.')
         return phone

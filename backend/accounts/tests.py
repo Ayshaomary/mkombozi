@@ -3,13 +3,23 @@ from rest_framework.test import APIClient
 
 from .models import User
 from .testing import client_for, make_business
-from .utils import normalize_phone
+from .utils import normalize_phone, phone_too_long
 
 
 class PhoneNormalizationTests(TestCase):
     def test_tanzanian_formats_become_one(self):
         for raw in ['0712345678', '0712 345 678', '255712345678', '+255712345678', '+255 712-345-678']:
             self.assertEqual(normalize_phone(raw), '+255712345678')
+
+    def test_phone_length_limits(self):
+        # Without a country code: at most 10 digits
+        self.assertFalse(phone_too_long('0712 345 678'))
+        self.assertTrue(phone_too_long('07123456789'))
+        # With Tanzania's code: at most 12 digits; with another code: at most 15
+        self.assertFalse(phone_too_long('+255 712 345 678'))
+        self.assertFalse(phone_too_long('255712345678'))
+        self.assertTrue(phone_too_long('+2557123456789'))
+        self.assertFalse(phone_too_long('+447911123456'))
 
 
 class RegisterAndLoginTests(TestCase):
@@ -34,6 +44,11 @@ class RegisterAndLoginTests(TestCase):
         self.assertEqual(user.role, User.Role.OWNER)
         self.assertEqual(user.business.name, 'Duka la Amina')
         self.assertTrue(user.business.subscription.is_valid)
+
+    def test_register_refuses_too_long_phone(self):
+        response = self.register(phone='07541112223')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('phone', response.data)
 
     def test_duplicate_phone_rejected_in_any_format(self):
         self.register()

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import Icon from '../components/Icon'
 import { useNotifications } from '../components/Notifications'
-import { Badge, Button, Card, EmptyState, ErrorBox, Input, Loading, Modal, PageHeader, Select } from '../components/ui'
+import { Badge, Button, Card, EmptyState, ErrorBox, Input, Loading, Modal, PageHeader, PhoneInput, Select } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { api } from '../lib/api'
@@ -314,10 +314,8 @@ export default function NewSalePage() {
                       value={customer.customer_name}
                       onChange={(e) => setCustomer({ ...customer, customer_name: e.target.value })}
                     />
-                    <Input
+                    <PhoneInput
                       label={t('pos.customerPhone')}
-                      type="tel"
-                      inputMode="tel"
                       value={customer.customer_phone}
                       onChange={(e) => setCustomer({ ...customer, customer_phone: e.target.value })}
                     />
