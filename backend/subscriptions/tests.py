@@ -1,10 +1,16 @@
+import hashlib
+import hmac
+import json
 from datetime import timedelta
+from unittest import mock
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 from accounts.testing import client_for, make_business
 
+from . import sonicpesa
 from .models import Plan, Subscription, SubscriptionPayment
 
 
@@ -60,3 +66,110 @@ class SubscriptionTests(TestCase):
         payment.mark_completed()
         # 14 trial days left + 30 paid days
         self.assertEqual(Subscription.objects.get(business=self.business).days_left, 44)
+
+
+@override_settings(SONICPESA_API_KEY='sk_test', SONICPESA_API_SECRET='ss_test')
+class SonicPesaTests(TestCase):
+    def setUp(self):
+        self.business, self.owner = make_business()
+        self.client = client_for(self.owner)
+        self.plan = Plan.objects.get(code='monthly')
+
+    def start_payment(self, phone='0712000001'):
+        with mock.patch.object(sonicpesa, 'create_order', return_value={'order_id': 'sp_123'}) as create:
+            response = self.client.post(
+                '/api/subscription/payments/',
+                {'plan': self.plan.pk, 'phone': phone, 'provider': 'mpesa'},
+                format='json',
+            )
+        return response, create
+
+    def webhook(self, payload, secret='ss_test'):
+        body = json.dumps(payload).encode()
+        signature = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+        return APIClient().post(
+            '/api/subscription/sonicpesa/webhook/', body,
+            content_type='application/json', HTTP_X_SONICPESA_SIGNATURE=signature,
+        )
+
+    def test_payment_sends_push_ussd(self):
+        response, create = self.start_payment()
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertTrue(response.data['push_sent'])
+        self.assertEqual(response.data['status'], 'pending')
+        create.assert_called_once()
+        self.assertEqual(create.call_args.kwargs['phone'], '255712000001')
+        self.assertEqual(create.call_args.kwargs['amount'], 10000)
+        self.assertEqual(SubscriptionPayment.objects.get().gateway_order_id, 'sp_123')
+
+    def test_rejected_push_marks_payment_failed(self):
+        with mock.patch.object(sonicpesa, 'create_order', side_effect=sonicpesa.SonicPesaError('Bad number')):
+            response = self.client.post(
+                '/api/subscription/payments/',
+                {'plan': self.plan.pk, 'phone': '0712000001', 'provider': 'mpesa'},
+                format='json',
+            )
+        self.assertEqual(response.status_code, 502)
+        payment = SubscriptionPayment.objects.get()
+        self.assertEqual(payment.status, 'failed')
+        self.assertEqual(payment.failure_reason, 'Bad number')
+
+    def test_non_tanzanian_number_is_refused(self):
+        response, create = self.start_payment(phone='12345')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('phone', response.data)
+        create.assert_not_called()
+
+    def test_manual_payment_skips_sonicpesa(self):
+        with mock.patch.object(sonicpesa, 'create_order') as create:
+            response = self.client.post(
+                '/api/subscription/payments/',
+                {'plan': self.plan.pk, 'phone': '0712000001', 'provider': 'manual'},
+                format='json',
+            )
+        self.assertEqual(response.status_code, 201)
+        self.assertFalse(response.data['push_sent'])
+        create.assert_not_called()
+
+    def test_status_check_completes_payment(self):
+        payment_id = self.start_payment()[0].data['id']
+        status = {'payment_status': 'SUCCESS', 'amount': 10000, 'transid': 'T1', 'channel': 'TIGOPESATZ'}
+        with mock.patch.object(sonicpesa, 'order_status', return_value=status):
+            response = self.client.get(f'/api/subscription/payments/{payment_id}/')
+        self.assertEqual(response.data['status'], 'completed')
+        self.assertEqual(response.data['provider'], 'tigopesa')
+        self.assertEqual(Subscription.objects.get(business=self.business).status, 'active')
+
+    def test_status_check_keeps_pending_and_marks_cancelled(self):
+        payment_id = self.start_payment()[0].data['id']
+        url = f'/api/subscription/payments/{payment_id}/'
+        with mock.patch.object(sonicpesa, 'order_status', return_value={'payment_status': 'PENDING'}):
+            self.assertEqual(self.client.get(url).data['status'], 'pending')
+        with mock.patch.object(sonicpesa, 'order_status', side_effect=sonicpesa.SonicPesaError('down')):
+            self.assertEqual(self.client.get(url).data['status'], 'pending')
+        with mock.patch.object(sonicpesa, 'order_status', return_value={'payment_status': 'USERCANCELLED'}):
+            self.assertEqual(self.client.get(url).data['status'], 'failed')
+
+    def test_webhook_completes_payment_once(self):
+        self.start_payment()
+        payload = {'event': 'payment.success', 'order_id': 'sp_123', 'status': 'SUCCESS', 'amount': 10000}
+        self.assertEqual(self.webhook(payload).status_code, 200)
+        self.assertEqual(self.webhook(payload).status_code, 200)
+        self.assertEqual(SubscriptionPayment.objects.get().status, 'completed')
+        # 14 trial days + 30 paid days, added only once although the webhook came twice
+        self.assertEqual(Subscription.objects.get(business=self.business).days_left, 44)
+
+    def test_webhook_with_wrong_signature_is_refused(self):
+        self.start_payment()
+        payload = {'order_id': 'sp_123', 'status': 'SUCCESS', 'amount': 10000}
+        self.assertEqual(self.webhook(payload, secret='wrong').status_code, 403)
+        self.assertEqual(SubscriptionPayment.objects.get().status, 'pending')
+
+    def test_webhook_with_too_small_amount_is_ignored(self):
+        self.start_payment()
+        self.webhook({'order_id': 'sp_123', 'status': 'SUCCESS', 'amount': 100})
+        self.assertEqual(SubscriptionPayment.objects.get().status, 'pending')
+
+    def test_webhook_for_unknown_order_is_ignored(self):
+        response = self.webhook({'event': 'payout.success', 'data': {'withdrawal_id': 14}})
+        self.assertEqual(response.status_code, 200)

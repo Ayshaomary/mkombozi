@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Icon from '../components/Icon'
-import { Badge, Button, Card, EmptyState, ErrorBox, Input, Loading, Modal, PageHeader, Select } from '../components/ui'
+import { Badge, Button, Card, EmptyState, ErrorBox, Input, Loading, Modal, PageHeader, Select, Spinner } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { api } from '../lib/api'
@@ -10,6 +10,35 @@ import { useApi } from '../lib/useApi'
 
 const PAYMENT_TONES = { pending: 'warn', completed: 'good', failed: 'bad' }
 
+// After the Push USSD is sent, check every few seconds whether the payer approved it on their phone
+const CHECK_EVERY_MS = 5000
+const STOP_CHECKING_AFTER_MS = 3 * 60 * 1000
+
+function PaymentResult({ title, icon, tone, text, onClose, action }) {
+  const { t } = useLanguage()
+  const tones = { good: 'bg-brand-soft text-brand-ink', bad: 'bg-bad-soft text-bad', wait: 'bg-warn-soft text-warn-ink' }
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={title}
+      footer={
+        <>
+          {action}
+          <Button variant={action ? 'secondary' : 'primary'} onClick={onClose}>
+            {t('common.close')}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col items-center gap-3 text-center">
+        <div className={`rounded-full p-3 ${tones[tone]}`}>{icon === 'spinner' ? <Spinner size={28} /> : <Icon name={icon} size={28} />}</div>
+        <p className="text-sm text-ink-2">{text}</p>
+      </div>
+    </Modal>
+  )
+}
+
 function PayModal({ plan, onClose, onDone }) {
   const { t } = useLanguage()
   const { user } = useAuth()
@@ -17,6 +46,32 @@ function PayModal({ plan, onClose, onDone }) {
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
   const [payment, setPayment] = useState(null)
+  const [timedOut, setTimedOut] = useState(false)
+
+  const waiting = Boolean(payment?.push_sent && payment.status === 'pending')
+  const paymentId = payment?.id
+
+  useEffect(() => {
+    if (!waiting) return
+    const started = Date.now()
+    const timer = setInterval(async () => {
+      if (Date.now() - started > STOP_CHECKING_AFTER_MS) {
+        clearInterval(timer)
+        setTimedOut(true)
+        return
+      }
+      try {
+        const latest = await api.get(`/subscription/payments/${paymentId}/`)
+        if (latest.status !== 'pending') {
+          setPayment(latest)
+          onDone()
+        }
+      } catch {
+        // A failed check is not a failed payment; try again on the next tick
+      }
+    }, CHECK_EVERY_MS)
+    return () => clearInterval(timer)
+  }, [waiting, paymentId, onDone])
 
   const submit = async (event) => {
     event.preventDefault()
@@ -24,24 +79,69 @@ function PayModal({ plan, onClose, onDone }) {
     setError(null)
     try {
       setPayment(await api.post('/subscription/payments/', { plan: plan.id, ...form }))
-      onDone()
     } catch (err) {
       setError(err)
     } finally {
       setSaving(false)
+      onDone()
     }
+  }
+
+  const tryAgain = () => {
+    setPayment(null)
+    setTimedOut(false)
+  }
+
+  if (payment?.status === 'completed') {
+    return (
+      <PaymentResult
+        title={t('subscription.paidTitle')}
+        icon="check"
+        tone="good"
+        text={t('subscription.paidText', { plan: plan.name })}
+        onClose={onClose}
+      />
+    )
+  }
+
+  if (payment?.status === 'failed') {
+    return (
+      <PaymentResult
+        title={t('subscription.failedTitle')}
+        icon="alert"
+        tone="bad"
+        text={t('subscription.failedText')}
+        onClose={onClose}
+        action={<Button onClick={tryAgain}>{t('common.tryAgain')}</Button>}
+      />
+    )
+  }
+
+  if (waiting) {
+    return (
+      <PaymentResult
+        title={t('subscription.checkPhoneTitle')}
+        icon={timedOut ? 'history' : 'spinner'}
+        tone="wait"
+        text={
+          timedOut
+            ? t('subscription.stillWaitingText', { ref: payment.reference })
+            : t('subscription.checkPhoneText', { phone: payment.phone, amount: formatMoney(payment.amount) })
+        }
+        onClose={onClose}
+      />
+    )
   }
 
   if (payment) {
     return (
-      <Modal open onClose={onClose} title={t('subscription.pendingTitle')} footer={<Button onClick={onClose}>{t('common.close')}</Button>}>
-        <div className="flex flex-col items-center gap-3 text-center">
-          <div className="rounded-full bg-brand-soft p-3 text-brand-ink">
-            <Icon name="check" size={28} />
-          </div>
-          <p className="text-sm text-ink-2">{t('subscription.pendingText', { ref: payment.reference })}</p>
-        </div>
-      </Modal>
+      <PaymentResult
+        title={t('subscription.pendingTitle')}
+        icon="check"
+        tone="good"
+        text={t('subscription.pendingText', { ref: payment.reference })}
+        onClose={onClose}
+      />
     )
   }
 
@@ -90,6 +190,11 @@ export default function SubscriptionPage() {
   const plans = useApi('/subscription/plans/')
   const payments = useApi('/subscription/payments/')
   const [payingFor, setPayingFor] = useState(null)
+  const reloadPayments = payments.reload
+  const handlePaymentChange = useCallback(() => {
+    reloadPayments()
+    loadSubscription()
+  }, [reloadPayments, loadSubscription])
 
   if (!subscription) return <Loading />
 
@@ -169,10 +274,7 @@ export default function SubscriptionPage() {
         <PayModal
           plan={payingFor}
           onClose={() => setPayingFor(null)}
-          onDone={() => {
-            payments.reload()
-            loadSubscription()
-          }}
+          onDone={handlePaymentChange}
         />
       )}
     </>

@@ -44,6 +44,12 @@ services:
         sync: false
       - key: DJANGO_SUPERUSER_PASSWORD
         sync: false
+      # SonicPesa mobile money keys (from sonicpesa.com > API Settings). Render asks you for these values.
+      # Webhook URL to set in SonicPesa: https://mukombozi-api.onrender.com/api/subscription/sonicpesa/webhook/
+      - key: SONICPESA_API_KEY
+        sync: false
+      - key: SONICPESA_API_SECRET
+        sync: false
 
   # React website
   - type: web

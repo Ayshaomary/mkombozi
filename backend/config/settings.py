@@ -203,6 +203,18 @@ if 'test' in sys.argv:
     STORAGES['staticfiles'] = {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'}
 
 
+# SonicPesa mobile money for subscription payments (keys from SonicPesa's API Settings page).
+# Without an API key, payments are saved as 'pending' and an admin confirms them by hand.
+SONICPESA_API_KEY = os.environ.get('SONICPESA_API_KEY', '')
+SONICPESA_API_SECRET = os.environ.get('SONICPESA_API_SECRET', '')
+SONICPESA_BASE_URL = os.environ.get('SONICPESA_BASE_URL', 'https://api.sonicpesa.com/api/v1')
+# SonicPesa asks for the payer's email; most of our users only have a phone number
+SONICPESA_BUYER_EMAIL = os.environ.get('SONICPESA_BUYER_EMAIL', 'payments@mukombozi.app')
+if 'test' in sys.argv:
+    # Tests must never send real payment requests
+    SONICPESA_API_KEY = SONICPESA_API_SECRET = ''
+
+
 # Where the React app is, for the link on the backend's home page
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
 

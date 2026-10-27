@@ -258,8 +258,16 @@ export const translations = {
       payPhone: 'Phone number paying',
       confirmPay: 'Send payment request',
       pendingTitle: 'Payment recorded',
-      pendingText:
-        'Reference: {ref}. Automatic mobile money payment is coming soon. For now, our team will confirm your payment and activate your subscription.',
+      pendingText: 'Reference: {ref}. Our team will confirm your payment and activate your subscription.',
+      checkPhoneTitle: 'Check your phone',
+      checkPhoneText:
+        'A payment request for {amount} was sent to {phone}. Enter your PIN on the phone to approve it. Keep this window open.',
+      stillWaitingText:
+        'We have not received your approval yet (reference: {ref}). If you approved it, your subscription will be activated in a few minutes. You can close this window.',
+      paidTitle: 'Payment received',
+      paidText: 'Thank you! Your {plan} subscription is now active.',
+      failedTitle: 'Payment not completed',
+      failedText: 'The payment was cancelled or rejected. No money was taken. You can try again.',
       history: 'Payment history',
       noPayments: 'No payments yet',
       pending: 'Pending',
@@ -587,8 +595,16 @@ export const translations = {
       payPhone: 'Namba ya simu inayolipa',
       confirmPay: 'Tuma ombi la malipo',
       pendingTitle: 'Malipo yamerekodiwa',
-      pendingText:
-        'Kumbukumbu: {ref}. Malipo ya moja kwa moja kwa simu yanakuja hivi karibuni. Kwa sasa, timu yetu itathibitisha malipo yako na kuwasha kifurushi chako.',
+      pendingText: 'Kumbukumbu: {ref}. Timu yetu itathibitisha malipo yako na kuwasha kifurushi chako.',
+      checkPhoneTitle: 'Angalia simu yako',
+      checkPhoneText:
+        'Ombi la malipo la {amount} limetumwa kwa {phone}. Weka PIN yako kwenye simu ili kuthibitisha. Usifunge dirisha hili.',
+      stillWaitingText:
+        'Bado hatujapokea uthibitisho wako (kumbukumbu: {ref}). Kama umethibitisha, kifurushi chako kitawashwa ndani ya dakika chache. Unaweza kufunga dirisha hili.',
+      paidTitle: 'Malipo yamepokelewa',
+      paidText: 'Asante! Kifurushi chako cha {plan} sasa kinatumika.',
+      failedTitle: 'Malipo hayajakamilika',
+      failedText: 'Malipo yameghairiwa au kukataliwa. Hakuna pesa iliyokatwa. Unaweza kujaribu tena.',
       history: 'Historia ya malipo',
       noPayments: 'Bado hakuna malipo',
       pending: 'Inasubiri',

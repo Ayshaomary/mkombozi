@@ -85,6 +85,10 @@ class SubscriptionPayment(models.Model):
     provider = models.CharField(max_length=20, choices=Provider.choices)
     reference = models.CharField(max_length=40, unique=True, editable=False)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    # Filled when the payment goes through SonicPesa (mobile money Push USSD)
+    gateway_order_id = models.CharField(max_length=60, blank=True, db_index=True)
+    gateway_transid = models.CharField(max_length=60, blank=True)
+    failure_reason = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
 
@@ -101,8 +105,14 @@ class SubscriptionPayment(models.Model):
 
     @transaction.atomic
     def mark_completed(self):
-        """Confirm the payment and extend the business's subscription by the plan's duration."""
-        if self.status == self.Status.COMPLETED:
+        """Confirm the payment and extend the business's subscription by the plan's duration.
+
+        Safe to call more than once, even at the same moment (e.g. a webhook and a status check).
+        """
+        # Lock the row and read the real status, so two calls can't both add the days
+        status = SubscriptionPayment.objects.select_for_update().values_list('status', flat=True).get(pk=self.pk)
+        if status == self.Status.COMPLETED:
+            self.status = status
             return
         now = timezone.now()
         self.status = self.Status.COMPLETED
@@ -118,3 +128,12 @@ class SubscriptionPayment(models.Model):
         subscription.plan = self.plan
         subscription.status = Subscription.Status.ACTIVE
         subscription.save()
+
+    def mark_failed(self, reason=''):
+        """Mark a pending payment as failed. A completed payment is never changed back."""
+        updated = SubscriptionPayment.objects.filter(pk=self.pk, status=self.Status.PENDING).update(
+            status=self.Status.FAILED, failure_reason=reason[:255]
+        )
+        if updated:
+            self.status = self.Status.FAILED
+            self.failure_reason = reason[:255]
