@@ -3,7 +3,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import UserChangeForm as BaseUserChangeForm
 from django.contrib.auth.forms import UserCreationForm as BaseUserCreationForm
 
-from .models import Business, User
+from .models import Business, PasswordResetCode, User
 
 
 class UserCreationForm(BaseUserCreationForm):
@@ -45,3 +45,18 @@ class UserAdmin(BaseUserAdmin):
             'fields': ('phone', 'first_name', 'business', 'role', 'password1', 'password2'),
         }),
     )
+
+
+@admin.register(PasswordResetCode)
+class PasswordResetCodeAdmin(admin.ModelAdmin):
+    """Read-only: shows whether a user asked for a reset code and used it. The code itself is never shown."""
+
+    list_display = ['user', 'created_at', 'attempts', 'used_at']
+    search_fields = ['user__phone', 'user__first_name']
+    exclude = ['code_hash']
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

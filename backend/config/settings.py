@@ -210,9 +210,18 @@ SONICPESA_API_SECRET = os.environ.get('SONICPESA_API_SECRET', '')
 SONICPESA_BASE_URL = os.environ.get('SONICPESA_BASE_URL', 'https://api.sonicpesa.com/api/v1')
 # SonicPesa asks for the payer's email; most of our users only have a phone number
 SONICPESA_BUYER_EMAIL = os.environ.get('SONICPESA_BUYER_EMAIL', 'payments@mukombozi.app')
+# Beem Africa SMS, used for password reset codes (keys from the Beem dashboard).
+# Without keys, SMS are printed in the terminal while DEBUG is on, and refused when it is off.
+BEEM_API_KEY = os.environ.get('BEEM_API_KEY', '')
+BEEM_SECRET_KEY = os.environ.get('BEEM_SECRET_KEY', '')
+# The name the SMS comes from. 'INFO' works at first; your own name (e.g. MUKOMBOZI) needs Beem's approval.
+BEEM_SENDER_ID = os.environ.get('BEEM_SENDER_ID', 'INFO')
+BEEM_SMS_URL = os.environ.get('BEEM_SMS_URL', 'https://apisms.beem.africa/v1/send')
+
 if 'test' in sys.argv:
-    # Tests must never send real payment requests
+    # Tests must never send real payment requests or SMS
     SONICPESA_API_KEY = SONICPESA_API_SECRET = ''
+    BEEM_API_KEY = BEEM_SECRET_KEY = ''
 
 
 # Where the React app is, for the link on the backend's home page
@@ -233,6 +242,8 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_PAGINATION_CLASS': 'config.pagination.StandardPagination',
+    # Forgot-password requests per internet address, so nobody can send endless SMS or guess codes
+    'DEFAULT_THROTTLE_RATES': {'password_reset': '20/hour'},
 }
 
 SIMPLE_JWT = {

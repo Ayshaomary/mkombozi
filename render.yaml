@@ -50,6 +50,13 @@ services:
         sync: false
       - key: SONICPESA_API_SECRET
         sync: false
+      # Beem Africa SMS keys, for "forgot password" codes. Without them, password reset by SMS is off.
+      - key: BEEM_API_KEY
+        sync: false
+      - key: BEEM_SECRET_KEY
+        sync: false
+      - key: BEEM_SENDER_ID
+        value: INFO
 
   # React website
   - type: web

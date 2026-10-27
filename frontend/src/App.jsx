@@ -4,6 +4,7 @@ import { Loading } from './components/ui'
 import { useAuth } from './context/AuthContext'
 import DashboardPage from './pages/DashboardPage'
 import ExpensesPage from './pages/ExpensesPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import LoginPage from './pages/LoginPage'
 import NewSalePage from './pages/NewSalePage'
 import ProductsPage from './pages/ProductsPage'
@@ -39,6 +40,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<GuestOnly><LoginPage /></GuestOnly>} />
       <Route path="/register" element={<GuestOnly><RegisterPage /></GuestOnly>} />
+      <Route path="/forgot-password" element={<GuestOnly><ForgotPasswordPage /></GuestOnly>} />
 
       <Route element={<RequireAuth><Layout /></RequireAuth>}>
         <Route index element={<OwnerOnly><DashboardPage /></OwnerOnly>} />

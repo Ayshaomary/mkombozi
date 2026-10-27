@@ -1,7 +1,13 @@
+from datetime import timedelta
+from unittest import mock
+
+from django.core.cache import cache
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
-from .models import User
+from . import password_reset
+from .models import PasswordResetCode, User
 from .testing import client_for, make_business
 from .utils import normalize_phone, phone_too_long
 
@@ -113,3 +119,77 @@ class StaffTests(TestCase):
         response = client_for(self.owner).delete(f'/api/staff/{self.owner.pk}/')
         self.assertEqual(response.status_code, 404)
         self.assertTrue(User.objects.filter(pk=self.owner.pk).exists())
+
+
+@mock.patch.object(password_reset, 'send_sms')
+class PasswordResetTests(TestCase):
+    def setUp(self):
+        cache.clear()  # resets the request limit between tests
+        self.business, self.owner = make_business(phone='+255742000001')
+        self.client = APIClient()
+
+    def ask_code(self, phone='0742 000 001'):
+        return self.client.post('/api/auth/password-reset/', {'phone': phone}, format='json')
+
+    def sent_code(self, send_sms):
+        return send_sms.call_args.args[1].split()[1]
+
+    def confirm(self, code, password='NewPassword2026!', phone='0742000001'):
+        return self.client.post(
+            '/api/auth/password-reset/confirm/',
+            {'phone': phone, 'code': code, 'new_password': password},
+            format='json',
+        )
+
+    def test_code_by_sms_sets_new_password(self, send_sms):
+        self.assertEqual(self.ask_code().status_code, 200)
+        send_sms.assert_called_once()
+        self.assertEqual(send_sms.call_args.args[0], '+255742000001')
+        code = self.sent_code(send_sms)
+        self.assertRegex(code, r'^\d{6}$')
+
+        self.assertEqual(self.confirm(code).status_code, 200)
+        self.owner.refresh_from_db()
+        self.assertTrue(self.owner.check_password('NewPassword2026!'))
+        # A code works only once
+        self.assertEqual(self.confirm(code, password='Another2026!pw').status_code, 400)
+
+    def test_unknown_number_gets_same_answer_and_no_sms(self, send_sms):
+        response = self.ask_code('0752999999')
+        self.assertEqual(response.status_code, 200)
+        send_sms.assert_not_called()
+
+    def test_wrong_code_is_refused_and_locks_after_5_tries(self, send_sms):
+        self.ask_code()
+        code = self.sent_code(send_sms)
+        wrong = f'{(int(code) + 1) % 1_000_000:06d}'
+        for _ in range(PasswordResetCode.MAX_ATTEMPTS):
+            self.assertEqual(self.confirm(wrong).status_code, 400)
+        # Even the right code no longer works
+        self.assertEqual(self.confirm(code).status_code, 400)
+
+    def test_expired_code_is_refused(self, send_sms):
+        self.ask_code()
+        PasswordResetCode.objects.update(created_at=timezone.now() - timedelta(minutes=11))
+        self.assertEqual(self.confirm(self.sent_code(send_sms)).status_code, 400)
+
+    def test_new_code_only_after_a_minute(self, send_sms):
+        self.ask_code()
+        self.ask_code()
+        self.assertEqual(send_sms.call_count, 1)
+        PasswordResetCode.objects.update(created_at=timezone.now() - timedelta(minutes=2))
+        self.ask_code()
+        self.assertEqual(send_sms.call_count, 2)
+
+    def test_weak_password_is_refused(self, send_sms):
+        self.ask_code()
+        response = self.confirm(self.sent_code(send_sms), password='12345678')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('new_password', response.data)
+
+    def test_sms_failure_is_reported_and_not_counted(self, send_sms):
+        from notifications.sms import SMSError
+
+        send_sms.side_effect = SMSError('down')
+        self.assertEqual(self.ask_code().status_code, 503)
+        self.assertFalse(PasswordResetCode.objects.exists())

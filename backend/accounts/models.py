@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 
@@ -64,3 +66,23 @@ class User(AbstractUser):
     @property
     def is_owner(self):
         return self.role == self.Role.OWNER
+
+
+class PasswordResetCode(models.Model):
+    """A one-time code sent by SMS, so a user who forgot their password can choose a new one."""
+
+    LIFETIME = timedelta(minutes=10)
+    MAX_ATTEMPTS = 5
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_reset_codes')
+    # Only a hash is stored, like a password, so the code can't be read from the database
+    code_hash = models.CharField(max_length=128)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Reset code for {self.user} at {self.created_at:%Y-%m-%d %H:%M}'

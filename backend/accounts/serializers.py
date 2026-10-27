@@ -114,6 +114,20 @@ class StaffSerializer(serializers.ModelSerializer):
         return User.objects.create_user(role=User.Role.STAFF, **validated_data)
 
 
+class PasswordResetRequestSerializer(serializers.Serializer):
+    phone = PhoneField(max_length=20)
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    phone = PhoneField(max_length=20)
+    code = serializers.RegexField(r'^\d{6}$', error_messages={'invalid': 'Enter the 6-digit code from the SMS.'})
+    new_password = serializers.CharField(write_only=True, min_length=8)
+
+    def validate_new_password(self, value):
+        password_validation.validate_password(value)
+        return value
+
+
 class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(write_only=True)
     new_password = serializers.CharField(write_only=True, min_length=8)

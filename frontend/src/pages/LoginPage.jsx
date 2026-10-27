@@ -47,6 +47,11 @@ export default function LoginPage() {
           onChange={(e) => setPassword(e.target.value)}
           required
         />
+        <p className="-mt-2 text-right text-sm">
+          <Link to="/forgot-password" className="text-brand-ink underline">
+            {t('auth.forgotPassword')}
+          </Link>
+        </p>
         <Button type="submit" size="lg" className="w-full" loading={saving}>
           {t('auth.login')}
         </Button>
