@@ -20,6 +20,7 @@ import { api } from '../lib/api'
 import { formatDateTime, formatMoney, formatQuantity } from '../lib/format'
 import { useApi, usePaginated } from '../lib/useApi'
 import { useDebounce } from '../lib/useDebounce'
+import { SHOP_TYPES } from '../lib/constants'
 
 const UNITS = ['piece', 'kg', 'litre', 'metre', 'box', 'packet', 'dozen', 'bag']
 const EMPTY_PRODUCT = {
@@ -34,11 +35,13 @@ const EMPTY_PRODUCT = {
   is_active: true,
 }
 
-// Category names that fit the type of shop and aren't added yet, e.g. a food shop: Food, Drinks, Other
-function useCategorySuggestions(categories) {
+// Category names that fit a type of shop and aren't added yet, e.g. a food shop: Food, Drinks, Other.
+// Without `browseType`, the user's own type of shop is used.
+function useCategorySuggestions(categories, browseType) {
   const { t } = useLanguage()
   const { user } = useAuth()
-  const type = user?.business?.business_type || 'other'
+  const ownType = user?.business?.business_type || 'other'
+  const type = browseType || ownType
   const list = (key) => {
     const value = t(key)
     return Array.isArray(value) ? value : []
@@ -46,6 +49,7 @@ function useCategorySuggestions(categories) {
   const taken = new Set(categories.map((c) => c.name.trim().toLowerCase()))
   return {
     type,
+    ownType,
     names: [...list(`categorySuggestions.${type}`), ...list('categorySuggestions.all')].filter(
       (name) => !taken.has(name.toLowerCase()),
     ),
@@ -304,7 +308,8 @@ function HistoryModal({ product, onClose }) {
 
 function CategoriesModal({ categories, onClose, onChanged }) {
   const { t } = useLanguage()
-  const suggestions = useCategorySuggestions(categories)
+  const [browseType, setBrowseType] = useState(null)
+  const suggestions = useCategorySuggestions(categories, browseType)
   const [name, setName] = useState('')
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -336,13 +341,21 @@ function CategoriesModal({ categories, onClose, onChanged }) {
 
   return (
     <Modal open onClose={onClose} title={t('product.categories')}>
-      {suggestions.names.length > 0 && (
-        <div className="mb-4">
-          <p className="text-sm font-medium text-ink">
-            {t('product.suggested', { type: t(`shopTypes.${suggestions.type}`) })}
-          </p>
-          <p className="mb-2 text-xs text-muted">{t('product.suggestedHint')}</p>
-          <div className="flex flex-wrap gap-2">
+      <div className="mb-4">
+        <Select
+          label={t('product.suggestionsFor')}
+          hint={t('product.suggestedHint')}
+          value={suggestions.type}
+          onChange={(e) => setBrowseType(e.target.value)}
+          options={SHOP_TYPES.map((type) => ({
+            value: type,
+            label: type === suggestions.ownType ? `${t(`shopTypes.${type}`)} ★` : t(`shopTypes.${type}`),
+          }))}
+        />
+        {suggestions.names.length === 0 ? (
+          <p className="mt-2 text-sm text-muted">{t('product.allSuggestionsAdded')}</p>
+        ) : (
+          <div className="mt-3 flex flex-wrap gap-2">
             {suggestions.names.map((suggested) => (
               <button
                 key={suggested}
@@ -355,8 +368,8 @@ function CategoriesModal({ categories, onClose, onChanged }) {
               </button>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
       <form onSubmit={add} className="mb-4 flex items-start gap-2">
         <Input
           className="flex-1"
