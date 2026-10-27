@@ -4,8 +4,7 @@ from rest_framework import serializers
 
 from accounts.serializers import clean_phone
 
-from . import sonicpesa
-from .models import Plan, Subscription, SubscriptionPayment
+from .models import NETWORK_PREFIXES, Plan, Subscription, SubscriptionPayment
 
 
 class PlanSerializer(serializers.ModelSerializer):
@@ -45,8 +44,17 @@ class SubscriptionPaymentSerializer(serializers.ModelSerializer):
         return clean_phone(value)
 
     def validate(self, attrs):
-        # Mobile money needs a real Tanzanian number, e.g. 0712 345 678
-        mobile = attrs.get('provider') != SubscriptionPayment.Provider.MANUAL
-        if mobile and sonicpesa.is_enabled() and not re.fullmatch(r'\+255[67]\d{8}', attrs.get('phone', '')):
-            raise serializers.ValidationError({'phone': 'Enter a Tanzanian mobile number, e.g. 0712 345 678.'})
+        provider = attrs.get('provider')
+        if provider == SubscriptionPayment.Provider.MANUAL:
+            return attrs
+        # Mobile money needs a Tanzanian number from the chosen network, e.g. M-Pesa: 074...
+        match = re.fullmatch(r'\+255(\d{2})\d{7}', attrs.get('phone', ''))
+        if not match:
+            raise serializers.ValidationError({'phone': 'Enter a Tanzanian mobile number, e.g. 0742 345 678.'})
+        prefixes = NETWORK_PREFIXES.get(provider, ())
+        if '0' + match.group(1) not in prefixes:
+            network = SubscriptionPayment.Provider(provider).label
+            raise serializers.ValidationError(
+                {'phone': f'This number is not on {network}. Use a number starting with {", ".join(prefixes)}.'}
+            )
         return attrs

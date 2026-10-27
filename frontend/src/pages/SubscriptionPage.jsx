@@ -4,7 +4,7 @@ import { Badge, Button, Card, EmptyState, ErrorBox, Loading, Modal, PageHeader, 
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { api } from '../lib/api'
-import { SUBSCRIPTION_PROVIDERS } from '../lib/constants'
+import { NETWORK_PREFIXES, phonePrefix, SUBSCRIPTION_PROVIDERS } from '../lib/constants'
 import { formatDate, formatMoney } from '../lib/format'
 import { useApi } from '../lib/useApi'
 
@@ -50,6 +50,15 @@ function PayModal({ plan, onClose, onDone }) {
 
   const waiting = Boolean(payment?.push_sent && payment.status === 'pending')
   const paymentId = payment?.id
+
+  // The number must belong to the chosen network, e.g. M-Pesa: 074, 075, 076 or 079
+  const prefixes = NETWORK_PREFIXES[form.provider]
+  const prefixList = prefixes?.join(', ')
+  const prefix = phonePrefix(form.phone)
+  const wrongNetwork = Boolean(prefixes && prefix && !prefixes.includes(prefix))
+  const phoneError = wrongNetwork
+    ? t('subscription.wrongNetwork', { network: t(`payment.${form.provider}`), prefixes: prefixList })
+    : error?.fields?.phone
 
   useEffect(() => {
     if (!waiting) return
@@ -155,7 +164,7 @@ function PayModal({ plan, onClose, onDone }) {
           <Button variant="secondary" onClick={onClose}>
             {t('common.cancel')}
           </Button>
-          <Button type="submit" form="pay-form" loading={saving}>
+          <Button type="submit" form="pay-form" loading={saving} disabled={wrongNetwork}>
             {t('subscription.confirmPay')}
           </Button>
         </>
@@ -174,7 +183,8 @@ function PayModal({ plan, onClose, onDone }) {
           label={t('subscription.payPhone')}
           value={form.phone}
           onChange={(e) => setForm({ ...form, phone: e.target.value })}
-          error={error?.fields?.phone}
+          hint={prefixes && t('subscription.prefixHint', { network: t(`payment.${form.provider}`), prefixes: prefixList })}
+          error={phoneError}
           required
         />
       </form>

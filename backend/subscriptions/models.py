@@ -63,6 +63,15 @@ class Subscription(models.Model):
         return max(math.ceil(seconds / 86400), 0)
 
 
+# How each mobile-money network's numbers start (Tanzania). The pay form in the app has the same list.
+NETWORK_PREFIXES = {
+    'mpesa': ('074', '075', '076', '079'),
+    'tigopesa': ('065', '067', '071', '077'),
+    'airtelmoney': ('068', '069', '078'),
+    'halopesa': ('061', '062'),
+}
+
+
 class SubscriptionPayment(models.Model):
     class Provider(models.TextChoices):
         MPESA = 'mpesa', 'M-Pesa'

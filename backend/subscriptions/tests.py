@@ -45,7 +45,7 @@ class SubscriptionTests(TestCase):
         plan = Plan.objects.get(code='monthly')
         response = self.client.post(
             '/api/subscription/payments/',
-            {'plan': plan.pk, 'phone': '0712000001', 'provider': 'mpesa'},
+            {'plan': plan.pk, 'phone': '0742000001', 'provider': 'mpesa'},
             format='json',
         )
         self.assertEqual(response.status_code, 201, response.data)
@@ -61,7 +61,7 @@ class SubscriptionTests(TestCase):
     def test_paying_early_keeps_remaining_days(self):
         plan = Plan.objects.get(code='monthly')
         payment = SubscriptionPayment.objects.create(
-            business=self.business, plan=plan, amount=plan.price, phone='+255712000001', provider='mpesa'
+            business=self.business, plan=plan, amount=plan.price, phone='+255742000001', provider='mpesa'
         )
         payment.mark_completed()
         # 14 trial days left + 30 paid days
@@ -75,7 +75,7 @@ class SonicPesaTests(TestCase):
         self.client = client_for(self.owner)
         self.plan = Plan.objects.get(code='monthly')
 
-    def start_payment(self, phone='0712000001'):
+    def start_payment(self, phone='0742000001'):
         with mock.patch.object(sonicpesa, 'create_order', return_value={'order_id': 'sp_123'}) as create:
             response = self.client.post(
                 '/api/subscription/payments/',
@@ -98,7 +98,7 @@ class SonicPesaTests(TestCase):
         self.assertTrue(response.data['push_sent'])
         self.assertEqual(response.data['status'], 'pending')
         create.assert_called_once()
-        self.assertEqual(create.call_args.kwargs['phone'], '255712000001')
+        self.assertEqual(create.call_args.kwargs['phone'], '255742000001')
         self.assertEqual(create.call_args.kwargs['amount'], 10000)
         self.assertEqual(SubscriptionPayment.objects.get().gateway_order_id, 'sp_123')
 
@@ -106,7 +106,7 @@ class SonicPesaTests(TestCase):
         with mock.patch.object(sonicpesa, 'create_order', side_effect=sonicpesa.SonicPesaError('Bad number')):
             response = self.client.post(
                 '/api/subscription/payments/',
-                {'plan': self.plan.pk, 'phone': '0712000001', 'provider': 'mpesa'},
+                {'plan': self.plan.pk, 'phone': '0742000001', 'provider': 'mpesa'},
                 format='json',
             )
         self.assertEqual(response.status_code, 502)
@@ -120,11 +120,20 @@ class SonicPesaTests(TestCase):
         self.assertIn('phone', response.data)
         create.assert_not_called()
 
+    def test_number_must_match_network(self):
+        # 0712... is a Mixx by Yas (Tigo Pesa) number, not M-Pesa
+        response, create = self.start_payment(phone='0712000001')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('074, 075, 076, 079', response.data['phone'][0])
+        create.assert_not_called()
+        for phone in ['0742000001', '0752000001', '0762000001', '+255 792 000 001']:
+            self.assertEqual(self.start_payment(phone=phone)[0].status_code, 201, phone)
+
     def test_manual_payment_skips_sonicpesa(self):
         with mock.patch.object(sonicpesa, 'create_order') as create:
             response = self.client.post(
                 '/api/subscription/payments/',
-                {'plan': self.plan.pk, 'phone': '0712000001', 'provider': 'manual'},
+                {'plan': self.plan.pk, 'phone': '0742000001', 'provider': 'manual'},
                 format='json',
             )
         self.assertEqual(response.status_code, 201)

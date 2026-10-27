@@ -14,3 +14,19 @@ export const EXPENSE_CATEGORIES = [
 ]
 
 export const SUBSCRIPTION_PROVIDERS = ['mpesa', 'tigopesa', 'airtelmoney', 'halopesa', 'manual']
+
+// How each mobile-money network's numbers start (same list as NETWORK_PREFIXES in subscriptions/models.py)
+export const NETWORK_PREFIXES = {
+  mpesa: ['074', '075', '076', '079'],
+  tigopesa: ['065', '067', '071', '077'],
+  airtelmoney: ['068', '069', '078'],
+  halopesa: ['061', '062'],
+}
+
+// "+255 742 345 678" or "0742345678" -> "074". Null until the number is complete.
+export function phonePrefix(phone) {
+  const digits = String(phone || '').replace(/\D/g, '')
+  if (digits.length === 12 && digits.startsWith('255')) return '0' + digits.slice(3, 5)
+  if (digits.length === 10 && digits.startsWith('0')) return digits.slice(0, 3)
+  return null
+}
