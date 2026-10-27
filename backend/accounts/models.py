@@ -9,7 +9,22 @@ from .utils import normalize_phone
 class Business(models.Model):
     """A shop or small business. All products, sales and expenses belong to one business."""
 
+    class Type(models.TextChoices):
+        # The app suggests product categories that fit the type (see categorySuggestions in translations.js)
+        SUPERMARKET = 'supermarket', 'Supermarket / general shop'
+        FOOD = 'food', 'Food and drinks'
+        COSMETICS = 'cosmetics', 'Cosmetics and beauty'
+        CLOTHING = 'clothing', 'Clothes and shoes'
+        ACCESSORIES = 'accessories', 'Accessories'
+        HARDWARE = 'hardware', 'Hardware and building'
+        ELECTRONICS = 'electronics', 'Electronics and phones'
+        PHARMACY = 'pharmacy', 'Pharmacy'
+        STATIONERY = 'stationery', 'Stationery and books'
+        AGROVET = 'agrovet', 'Agrovet (farming and animals)'
+        OTHER = 'other', 'Other'
+
     name = models.CharField(max_length=150)
+    business_type = models.CharField(max_length=20, choices=Type.choices, default=Type.OTHER)
     phone = models.CharField(max_length=20, blank=True)
     location = models.CharField(max_length=150, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

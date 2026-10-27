@@ -13,6 +13,21 @@ export const EXPENSE_CATEGORIES = [
   'other',
 ]
 
+// Types of shop (same as Business.Type in accounts/models.py). Each has its own suggested categories.
+export const SHOP_TYPES = [
+  'supermarket',
+  'food',
+  'cosmetics',
+  'clothing',
+  'accessories',
+  'hardware',
+  'electronics',
+  'pharmacy',
+  'stationery',
+  'agrovet',
+  'other',
+]
+
 export const SUBSCRIPTION_PROVIDERS = ['mpesa', 'tigopesa', 'airtelmoney', 'halopesa', 'manual']
 
 // How each mobile-money network's numbers start (same list as NETWORK_PREFIXES in subscriptions/models.py)

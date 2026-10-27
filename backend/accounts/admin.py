@@ -39,7 +39,8 @@ class UserChangeForm(PhoneFormMixin, BaseUserChangeForm):
 
 @admin.register(Business)
 class BusinessAdmin(admin.ModelAdmin):
-    list_display = ['name', 'phone', 'location', 'created_at', 'activity']
+    list_display = ['name', 'business_type', 'phone', 'location', 'created_at', 'activity']
+    list_filter = ['business_type']
     search_fields = ['name', 'phone']
 
     @admin.display(description='Activity')

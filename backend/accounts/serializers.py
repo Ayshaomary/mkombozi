@@ -25,7 +25,7 @@ def tokens_for(user):
 class BusinessSerializer(serializers.ModelSerializer):
     class Meta:
         model = Business
-        fields = ['id', 'name', 'phone', 'location', 'created_at']
+        fields = ['id', 'name', 'business_type', 'phone', 'location', 'created_at']
         read_only_fields = ['created_at']
 
     def validate_phone(self, value):
@@ -54,6 +54,7 @@ class PhoneField(serializers.CharField):
 class RegisterSerializer(serializers.Serializer):
     business_name = serializers.CharField(max_length=150)
     business_location = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    business_type = serializers.ChoiceField(choices=Business.Type.choices, default=Business.Type.OTHER)
     first_name = serializers.CharField(max_length=150)
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     phone = PhoneField(max_length=20)
@@ -73,6 +74,7 @@ class RegisterSerializer(serializers.Serializer):
         business = Business.objects.create(
             name=validated_data['business_name'],
             location=validated_data.get('business_location', ''),
+            business_type=validated_data['business_type'],
             phone=validated_data['phone'],
         )
         Subscription.start_trial(business)

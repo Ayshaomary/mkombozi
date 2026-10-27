@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import Icon from '../components/Icon'
-import { Badge, Button, Card, EmptyState, ErrorBox, Input, Loading, Modal, PageHeader, PhoneInput, SegmentedControl } from '../components/ui'
+import { Badge, Button, Card, EmptyState, ErrorBox, Input, Loading, Modal, PageHeader, PhoneInput, SegmentedControl, Select } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { api } from '../lib/api'
+import { SHOP_TYPES } from '../lib/constants'
 import { useApi } from '../lib/useApi'
 
 // A small form that saves itself and shows "Saved" afterwards.
@@ -86,7 +87,12 @@ function BusinessForm() {
   const { t } = useLanguage()
   const { user, refreshUser } = useAuth()
   const { field, submit, ...state } = useSaveForm(
-    { name: user.business.name, phone: user.business.phone, location: user.business.location },
+    {
+      name: user.business.name,
+      business_type: user.business.business_type,
+      phone: user.business.phone,
+      location: user.business.location,
+    },
     async (form) => {
       await api.patch('/business/', form)
       await refreshUser()
@@ -96,6 +102,12 @@ function BusinessForm() {
     <Card title={t('settings.business')}>
       <form onSubmit={submit} className="space-y-4">
         <Input label={t('auth.businessName')} required {...field('name')} />
+        <Select
+          label={t('auth.shopType')}
+          hint={t('settings.shopTypeHint')}
+          options={SHOP_TYPES.map((type) => ({ value: type, label: t(`shopTypes.${type}`) }))}
+          {...field('business_type')}
+        />
         <PhoneInput label={t('settings.businessPhone')} {...field('phone')} />
         <Input label={t('auth.businessLocation')} {...field('location')} />
         <SaveRow {...state} />

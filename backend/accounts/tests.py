@@ -51,6 +51,22 @@ class RegisterAndLoginTests(TestCase):
         self.assertEqual(user.business.name, 'Duka la Amina')
         self.assertTrue(user.business.subscription.is_valid)
 
+    def test_register_saves_shop_type(self):
+        self.register(business_type='hardware')
+        user = User.objects.get(phone='+255754111222')
+        self.assertEqual(user.business.business_type, 'hardware')
+        response = client_for(user).get('/api/auth/me/')
+        self.assertEqual(response.data['business']['business_type'], 'hardware')
+
+    def test_register_without_shop_type_uses_other(self):
+        self.register()
+        self.assertEqual(User.objects.get(phone='+255754111222').business.business_type, 'other')
+
+    def test_register_refuses_unknown_shop_type(self):
+        response = self.register(business_type='casino')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('business_type', response.data)
+
     def test_register_refuses_too_long_phone(self):
         response = self.register(phone='07541112223')
         self.assertEqual(response.status_code, 400)

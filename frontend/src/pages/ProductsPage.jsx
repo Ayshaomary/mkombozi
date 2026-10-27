@@ -34,8 +34,30 @@ const EMPTY_PRODUCT = {
   is_active: true,
 }
 
-function ProductFormModal({ product, categories, onClose, onSaved }) {
+// Category names that fit the type of shop and aren't added yet, e.g. a food shop: Food, Drinks, Other
+function useCategorySuggestions(categories) {
   const { t } = useLanguage()
+  const { user } = useAuth()
+  const type = user?.business?.business_type || 'other'
+  const list = (key) => {
+    const value = t(key)
+    return Array.isArray(value) ? value : []
+  }
+  const taken = new Set(categories.map((c) => c.name.trim().toLowerCase()))
+  return {
+    type,
+    names: [...list(`categorySuggestions.${type}`), ...list('categorySuggestions.all')].filter(
+      (name) => !taken.has(name.toLowerCase()),
+    ),
+  }
+}
+
+// In the category list, a suggestion that doesn't exist yet; it is created when the product is saved
+const NEW_CATEGORY = 'new:'
+
+function ProductFormModal({ product, categories, onClose, onSaved, onCategoriesChanged }) {
+  const { t } = useLanguage()
+  const suggestions = useCategorySuggestions(categories)
   const isNew = !product.id
   const [form, setForm] = useState(() =>
     isNew ? EMPTY_PRODUCT : { ...EMPTY_PRODUCT, ...product, category: product.category ?? '' },
@@ -53,9 +75,9 @@ function ProductFormModal({ product, categories, onClose, onSaved }) {
     event.preventDefault()
     setSaving(true)
     setError(null)
+    let category = form.category || null
     const body = {
       name: form.name,
-      category: form.category || null,
       unit: form.unit,
       cost_price: form.cost_price,
       selling_price: form.selling_price,
@@ -65,6 +87,13 @@ function ProductFormModal({ product, categories, onClose, onSaved }) {
     }
     if (isNew && form.opening_stock) body.opening_stock = form.opening_stock
     try {
+      if (String(category).startsWith(NEW_CATEGORY)) {
+        category = (await api.post('/categories/', { name: category.slice(NEW_CATEGORY.length) })).id
+        // If saving the product fails, trying again uses this category instead of adding it twice
+        setForm((current) => ({ ...current, category }))
+        onCategoriesChanged()
+      }
+      body.category = category
       if (isNew) await api.post('/products/', body)
       else await api.patch(`/products/${product.id}/`, body)
       onSaved()
@@ -101,6 +130,7 @@ function ProductFormModal({ product, categories, onClose, onSaved }) {
             options={[
               { value: '', label: t('product.noCategory') },
               ...categories.map((c) => ({ value: c.id, label: c.name })),
+              ...suggestions.names.map((name) => ({ value: NEW_CATEGORY + name, label: `+ ${name}` })),
             ]}
             {...field('category')}
           />
@@ -274,17 +304,18 @@ function HistoryModal({ product, onClose }) {
 
 function CategoriesModal({ categories, onClose, onChanged }) {
   const { t } = useLanguage()
+  const suggestions = useCategorySuggestions(categories)
   const [name, setName] = useState('')
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
 
-  const add = async (event) => {
+  const add = async (event, suggested) => {
     event.preventDefault()
     setSaving(true)
     setError(null)
     try {
-      await api.post('/categories/', { name })
-      setName('')
+      await api.post('/categories/', { name: suggested ?? name })
+      if (!suggested) setName('')
       onChanged()
     } catch (err) {
       setError(err)
@@ -305,6 +336,27 @@ function CategoriesModal({ categories, onClose, onChanged }) {
 
   return (
     <Modal open onClose={onClose} title={t('product.categories')}>
+      {suggestions.names.length > 0 && (
+        <div className="mb-4">
+          <p className="text-sm font-medium text-ink">
+            {t('product.suggested', { type: t(`shopTypes.${suggestions.type}`) })}
+          </p>
+          <p className="mb-2 text-xs text-muted">{t('product.suggestedHint')}</p>
+          <div className="flex flex-wrap gap-2">
+            {suggestions.names.map((suggested) => (
+              <button
+                key={suggested}
+                type="button"
+                disabled={saving}
+                onClick={(event) => add(event, suggested)}
+                className="inline-flex items-center gap-1 rounded-full border border-line-strong px-3 py-1.5 text-sm text-ink hover:border-brand hover:bg-brand-soft disabled:opacity-50"
+              >
+                <Icon name="plus" size={14} /> {suggested}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <form onSubmit={add} className="mb-4 flex items-start gap-2">
         <Input
           className="flex-1"
@@ -511,7 +563,13 @@ export default function ProductsPage() {
       )}
 
       {modal?.type === 'form' && (
-        <ProductFormModal product={modal.product} categories={categories} onClose={closeModal} onSaved={afterSave} />
+        <ProductFormModal
+          product={modal.product}
+          categories={categories}
+          onClose={closeModal}
+          onSaved={afterSave}
+          onCategoriesChanged={categoriesApi.reload}
+        />
       )}
       {modal?.type === 'stock' && <StockModal product={modal.product} onClose={closeModal} onSaved={afterSave} />}
       {modal?.type === 'history' && <HistoryModal product={modal.product} onClose={closeModal} />}

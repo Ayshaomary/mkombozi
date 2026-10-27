@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Button, ErrorBox, Input, PhoneInput } from '../components/ui'
+import { Button, ErrorBox, Input, PhoneInput, Select } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
+import { SHOP_TYPES } from '../lib/constants'
 import AuthShell from './AuthShell'
 
 export default function RegisterPage() {
@@ -11,6 +12,7 @@ export default function RegisterPage() {
   const navigate = useNavigate()
   const [form, setForm] = useState({
     business_name: '',
+    business_type: '',
     business_location: '',
     first_name: '',
     last_name: '',
@@ -46,6 +48,15 @@ export default function RegisterPage() {
       <form onSubmit={submit} className="space-y-4">
         {!hasFieldErrors && <ErrorBox error={error} />}
         <Input label={t('auth.businessName')} required {...field('business_name')} />
+        <Select
+          label={t('auth.shopType')}
+          required
+          options={[
+            { value: '', label: t('auth.chooseShopType') },
+            ...SHOP_TYPES.map((type) => ({ value: type, label: t(`shopTypes.${type}`) })),
+          ]}
+          {...field('business_type')}
+        />
         <Input label={t('auth.businessLocation')} {...field('business_location')} />
         <div className="grid grid-cols-2 gap-3">
           <Input label={t('auth.firstName')} autoComplete="given-name" required {...field('first_name')} />
