@@ -1,5 +1,7 @@
 from django import forms
 from django.contrib import admin
+from django.urls import reverse
+from django.utils.html import format_html
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import UserChangeForm as BaseUserChangeForm
 from django.contrib.auth.forms import UserCreationForm as BaseUserCreationForm
@@ -18,6 +20,11 @@ class PhoneFormMixin:
         return normalize_phone(phone)
 
 
+def activity_link(field, obj):
+    url = reverse('admin:activity_activitylog_changelist') + f'?{field}={obj.pk}'
+    return format_html('<a href="{}">View activity</a>', url)
+
+
 class UserCreationForm(PhoneFormMixin, BaseUserCreationForm):
     class Meta:
         model = User
@@ -32,8 +39,12 @@ class UserChangeForm(PhoneFormMixin, BaseUserChangeForm):
 
 @admin.register(Business)
 class BusinessAdmin(admin.ModelAdmin):
-    list_display = ['name', 'phone', 'location', 'created_at']
+    list_display = ['name', 'phone', 'location', 'created_at', 'activity']
     search_fields = ['name', 'phone']
+
+    @admin.display(description='Activity')
+    def activity(self, obj):
+        return activity_link('business__id__exact', obj)
 
 
 @admin.register(User)
@@ -41,7 +52,7 @@ class UserAdmin(BaseUserAdmin):
     form = UserChangeForm
     add_form = UserCreationForm
     ordering = ['phone']
-    list_display = ['phone', 'first_name', 'last_name', 'business', 'role', 'is_active']
+    list_display = ['phone', 'first_name', 'last_name', 'business', 'role', 'is_active', 'activity']
     list_filter = ['role', 'is_active', 'is_staff']
     search_fields = ['phone', 'first_name', 'last_name', 'business__name']
     fieldsets = (
@@ -51,6 +62,10 @@ class UserAdmin(BaseUserAdmin):
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
     )
+    @admin.display(description='Activity')
+    def activity(self, obj):
+        return activity_link('user__id__exact', obj)
+
     add_fieldsets = (
         (None, {
             'classes': ('wide',),

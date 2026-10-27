@@ -86,6 +86,7 @@ INSTALLED_APPS = [
     'reports',
     'subscriptions',
     'notifications',
+    'activity',
 ]
 
 MIDDLEWARE = [
@@ -99,6 +100,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Records who added, changed or deleted what (see Activity log in the admin)
+    'activity.middleware.ActivityLogMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
