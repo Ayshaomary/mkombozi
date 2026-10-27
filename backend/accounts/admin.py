@@ -1,18 +1,30 @@
+from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import UserChangeForm as BaseUserChangeForm
 from django.contrib.auth.forms import UserCreationForm as BaseUserCreationForm
 
 from .models import Business, PasswordResetCode, User
+from .utils import normalize_phone, phone_too_long
 
 
-class UserCreationForm(BaseUserCreationForm):
+class PhoneFormMixin:
+    """Save phone numbers in the same +255 format the login uses, so admin-made users can log in."""
+
+    def clean_phone(self):
+        phone = self.cleaned_data['phone']
+        if phone_too_long(phone):
+            raise forms.ValidationError('Phone number is too long. Use 10 digits, e.g. 0712 345 678.')
+        return normalize_phone(phone)
+
+
+class UserCreationForm(PhoneFormMixin, BaseUserCreationForm):
     class Meta:
         model = User
-        fields = ('phone', 'first_name', 'business', 'role')
+        fields = ('phone', 'first_name', 'business', 'role', 'is_staff', 'is_superuser')
 
 
-class UserChangeForm(BaseUserChangeForm):
+class UserChangeForm(PhoneFormMixin, BaseUserChangeForm):
     class Meta:
         model = User
         fields = '__all__'
@@ -44,6 +56,8 @@ class UserAdmin(BaseUserAdmin):
             'classes': ('wide',),
             'fields': ('phone', 'first_name', 'business', 'role', 'password1', 'password2'),
         }),
+        # Tick both to make an admin who can log in to this page. Leave "Business" empty for an admin.
+        ('Admin access', {'fields': ('is_staff', 'is_superuser')}),
     )
 
 

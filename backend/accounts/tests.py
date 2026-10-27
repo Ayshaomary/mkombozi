@@ -193,3 +193,22 @@ class PasswordResetTests(TestCase):
         send_sms.side_effect = SMSError('down')
         self.assertEqual(self.ask_code().status_code, 503)
         self.assertFalse(PasswordResetCode.objects.exists())
+
+
+class AdminUserFormTests(TestCase):
+    def test_admin_made_user_gets_standard_phone_and_can_log_in(self):
+        from .admin import UserCreationForm
+
+        form = UserCreationForm(data={
+            'phone': '0745 111 222', 'first_name': 'Neema', 'role': 'owner',
+            'is_staff': True, 'is_superuser': True,
+            'password1': 'Msimamizi2026!', 'password2': 'Msimamizi2026!',
+        })
+        self.assertTrue(form.is_valid(), form.errors)
+        user = form.save()
+        self.assertEqual(user.phone, '+255745111222')
+        self.assertTrue(user.is_superuser)
+        response = APIClient().post(
+            '/api/auth/login/', {'phone': '0745111222', 'password': 'Msimamizi2026!'}, format='json'
+        )
+        self.assertEqual(response.status_code, 200)
