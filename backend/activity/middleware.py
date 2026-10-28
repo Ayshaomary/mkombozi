@@ -50,6 +50,8 @@ RESOURCE_NAMES = {
     'recurring-expenses': 'recurring expense',
     'stock-movements': 'stock movement',
     'staff': 'staff member',
+    'recipes': 'recipe',
+    'production': 'production batch',
 }
 
 
@@ -107,8 +109,11 @@ def _describe(request, data):
 
 def _label(data):
     """A short name for the record, e.g. 'R-0012 (TZS 15,000)' or 'Sugar 1kg'."""
-    name = data.get('receipt_number') or data.get('name') or data.get('description') or data.get('first_name') or ''
-    amount = data.get('total_amount') or data.get('amount')
+    name = (
+        data.get('receipt_number') or data.get('batch_number') or data.get('name') or data.get('product_name')
+        or data.get('description') or data.get('first_name') or ''
+    )
+    amount = data.get('total_amount') or data.get('amount') or data.get('total_cost')
     if amount not in (None, ''):
         try:
             name = f'{name} (TZS {float(amount):,.0f})'.strip()

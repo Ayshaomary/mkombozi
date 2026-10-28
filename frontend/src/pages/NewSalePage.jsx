@@ -89,6 +89,8 @@ export default function NewSalePage() {
   // Offline, only the full list saved last time is available, so search within it on the phone
   const products = useApi('/products/', {
     active: 'true',
+    // Raw materials are used in production, not sold
+    kind: 'goods',
     search: offline.online ? debouncedSearch : '',
     page_size: 100,
   })

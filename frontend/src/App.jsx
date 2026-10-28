@@ -8,6 +8,7 @@ import ExpensesPage from './pages/ExpensesPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import LoginPage from './pages/LoginPage'
 import NewSalePage from './pages/NewSalePage'
+import ProductionPage from './pages/ProductionPage'
 import ProfilePage from './pages/ProfilePage'
 import ProductsPage from './pages/ProductsPage'
 import RegisterPage from './pages/RegisterPage'
@@ -66,6 +67,7 @@ export default function App() {
           <Route path="sales" element={<SalesPage />} />
           <Route path="products" element={<ProductsPage />} />
           <Route path="expenses" element={<ExpensesPage />} />
+          <Route path="production" element={<ProductionPage />} />
           <Route path="reports" element={<OwnerOnly><ReportsPage /></OwnerOnly>} />
           <Route path="subscription" element={<SubscriptionPage />} />
           <Route path="settings" element={<OwnerOnly><SettingsPage /></OwnerOnly>} />

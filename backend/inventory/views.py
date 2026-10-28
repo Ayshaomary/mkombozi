@@ -30,6 +30,7 @@ class ProductViewSet(BusinessScopedMixin, viewsets.ModelViewSet):
     """Products of the business.
 
     Filters: ?search=sugar  ?category=3  ?low_stock=true  ?active=true
+             ?kind=goods (sold at the till) or ?kind=material (raw materials for production)
     """
 
     queryset = Product.objects.select_related('category')
@@ -47,6 +48,8 @@ class ProductViewSet(BusinessScopedMixin, viewsets.ModelViewSet):
             queryset = queryset.filter(stock_quantity__lte=F('low_stock_threshold'))
         if params.get('active') == 'true':
             queryset = queryset.filter(is_active=True)
+        if (kind := params.get('kind')) in ('goods', 'material'):
+            queryset = queryset.filter(is_material=kind == 'material')
         return queryset
 
     @transaction.atomic

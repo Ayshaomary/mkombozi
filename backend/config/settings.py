@@ -88,6 +88,7 @@ INSTALLED_APPS = [
     'notifications',
     'activity',
     'adminpanel',
+    'production',
 ]
 
 MIDDLEWARE = [

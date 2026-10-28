@@ -40,7 +40,7 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'sku', 'category', 'category_name', 'unit',
             'cost_price', 'selling_price', 'stock_quantity', 'low_stock_threshold',
-            'is_low_stock', 'is_active', 'opening_stock', 'created_at', 'updated_at',
+            'is_low_stock', 'is_material', 'is_active', 'opening_stock', 'created_at', 'updated_at',
         ]
         # Stock only changes through sales and stock movements, never by editing the product
         read_only_fields = ['stock_quantity', 'created_at', 'updated_at']

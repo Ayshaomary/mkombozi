@@ -40,6 +40,8 @@ class Product(models.Model):
     # Decimal so that items sold by weight or volume (e.g. 1.5 kg) are supported
     stock_quantity = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     low_stock_threshold = models.DecimalField(max_digits=12, decimal_places=2, default=5)
+    # Raw materials (e.g. flour, oil) are used to make other products and are not sold at the till
+    is_material = models.BooleanField('raw material', default=False)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -65,6 +67,9 @@ class StockMovement(models.Model):
         SALE_CANCELLED = 'sale_cancelled', 'Sale cancelled'
         RETURN = 'return', 'Customer return'
         ADJUSTMENT = 'adjustment', 'Adjustment (damaged, lost, counted)'
+        PRODUCED = 'produced', 'Produced'
+        USED_IN_PRODUCTION = 'used_in_production', 'Used in production'
+        PRODUCTION_CANCELLED = 'production_cancelled', 'Production cancelled'
 
     business = models.ForeignKey('accounts.Business', on_delete=models.CASCADE, related_name='stock_movements')
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='movements')

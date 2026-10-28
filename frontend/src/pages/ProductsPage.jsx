@@ -32,6 +32,7 @@ const EMPTY_PRODUCT = {
   opening_stock: '',
   low_stock_threshold: '5',
   sku: '',
+  is_material: false,
   is_active: true,
 }
 
@@ -84,9 +85,11 @@ function ProductFormModal({ product, categories, onClose, onSaved, onCategoriesC
       name: form.name,
       unit: form.unit,
       cost_price: form.cost_price,
-      selling_price: form.selling_price,
+      // Raw materials are not sold, so they need no selling price
+      selling_price: form.is_material && form.selling_price === '' ? 0 : form.selling_price,
       low_stock_threshold: form.low_stock_threshold || 0,
       sku: form.sku,
+      is_material: form.is_material,
       is_active: form.is_active,
     }
     if (isNew && form.opening_stock) body.opening_stock = form.opening_stock
@@ -107,7 +110,7 @@ function ProductFormModal({ product, categories, onClose, onSaved, onCategoriesC
     }
   }
 
-  const belowCost = form.cost_price && form.selling_price && Number(form.selling_price) < Number(form.cost_price)
+  const belowCost = !form.is_material && form.cost_price && form.selling_price && Number(form.selling_price) < Number(form.cost_price)
 
   return (
     <Modal
@@ -144,17 +147,27 @@ function ProductFormModal({ product, categories, onClose, onSaved, onCategoriesC
             {...field('unit')}
           />
         </div>
+        <div>
+          <Checkbox
+            label={t('product.isMaterial')}
+            checked={form.is_material}
+            onChange={(e) => setForm({ ...form, is_material: e.target.checked })}
+          />
+          <p className="mt-1 text-xs text-muted">{t('product.isMaterialHint')}</p>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <Input label={t('product.costPrice')} type="number" min="0" step="any" inputMode="decimal" required {...field('cost_price')} />
-          <Input
-            label={t('product.sellingPrice')}
-            type="number"
-            min="0"
-            step="any"
-            inputMode="decimal"
-            required
-            {...field('selling_price')}
-          />
+          {!form.is_material && (
+            <Input
+              label={t('product.sellingPrice')}
+              type="number"
+              min="0"
+              step="any"
+              inputMode="decimal"
+              required
+              {...field('selling_price')}
+            />
+          )}
         </div>
         {belowCost && (
           <p className="flex items-center gap-2 text-sm text-warn-ink">
@@ -428,6 +441,7 @@ export default function ProductsPage() {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
   const [lowStock, setLowStock] = useState(searchParams.get('low_stock') === '1')
+  const [kind, setKind] = useState('')
   // Which modal is open: { type: 'form' | 'stock' | 'history' | 'categories', product }
   const [modal, setModal] = useState(() => (searchParams.get('add') === '1' && isOwner ? { type: 'form', product: {} } : null))
   const debouncedSearch = useDebounce(search)
@@ -437,6 +451,7 @@ export default function ProductsPage() {
   const products = usePaginated('/products/', {
     search: debouncedSearch,
     category,
+    kind,
     low_stock: lowStock ? 'true' : '',
   })
 
@@ -460,7 +475,7 @@ export default function ProductsPage() {
     }
   }
 
-  const filtering = debouncedSearch || category || lowStock
+  const filtering = debouncedSearch || category || kind || lowStock
 
   return (
     <>
@@ -502,6 +517,17 @@ export default function ProductsPage() {
             options={[{ value: '', label: t('common.all') }, ...categories.map((c) => ({ value: c.id, label: c.name }))]}
           />
         )}
+        <Select
+          aria-label={t('product.kind')}
+          className="w-44"
+          value={kind}
+          onChange={(e) => setKind(e.target.value)}
+          options={[
+            { value: '', label: t('product.allKinds') },
+            { value: 'goods', label: t('product.forSale') },
+            { value: 'material', label: t('product.materials') },
+          ]}
+        />
         <Checkbox label={t('product.lowStockOnly')} checked={lowStock} onChange={(e) => setLowStock(e.target.checked)} />
       </div>
 
@@ -525,6 +551,7 @@ export default function ProductsPage() {
                 <div className="min-w-0 flex-1 basis-48">
                   <p className="flex flex-wrap items-center gap-2 font-medium text-ink">
                     {p.name}
+                    {p.is_material && <Badge tone="warn">{t('product.material')}</Badge>}
                     {!p.is_active && <Badge>{t('product.inactive')}</Badge>}
                   </p>
                   <p className="text-xs text-muted">
@@ -532,7 +559,10 @@ export default function ProductsPage() {
                   </p>
                 </div>
                 <div className="w-48 text-sm">
-                  <p className="tabular font-semibold text-ink">{formatMoney(p.selling_price)}</p>
+                  {/* Raw materials have no selling price; show what they cost instead */}
+                  <p className="tabular font-semibold text-ink">
+                    {formatMoney(p.is_material ? p.cost_price : p.selling_price)}
+                  </p>
                   {isOwner && (
                     <p className="tabular text-xs text-muted">
                       {t('product.costPrice')}: {formatMoney(p.cost_price)}

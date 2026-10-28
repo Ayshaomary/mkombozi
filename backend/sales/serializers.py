@@ -11,7 +11,8 @@ from .models import Sale, SaleItem
 
 
 class SaleItemSerializer(serializers.ModelSerializer):
-    product = BusinessScopedPrimaryKeyRelatedField(queryset=Product.objects.filter(is_active=True))
+    # Raw materials are used in production, not sold
+    product = BusinessScopedPrimaryKeyRelatedField(queryset=Product.objects.filter(is_active=True, is_material=False))
     quantity = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal('0.01'))
     unit_price = serializers.DecimalField(
         max_digits=12, decimal_places=2, min_value=Decimal('0'), required=False,

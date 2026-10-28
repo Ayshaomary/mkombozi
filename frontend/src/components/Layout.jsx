@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { to: '/sales', icon: 'receipt', label: 'nav.sales' },
   { to: '/products', icon: 'box', label: 'nav.products' },
   { to: '/expenses', icon: 'wallet', label: 'nav.expenses' },
+  { to: '/production', icon: 'factory', label: 'nav.production' },
   { to: '/reports', icon: 'chart', label: 'nav.reports', ownerOnly: true },
   { to: '/subscription', icon: 'card', label: 'nav.subscription' },
   { to: '/settings', icon: 'settings', label: 'nav.settings', ownerOnly: true },
