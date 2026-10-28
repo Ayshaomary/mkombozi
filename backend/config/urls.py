@@ -29,5 +29,6 @@ urlpatterns = [
     path('api/', include('accounts.urls')),
     path('api/reports/', include('reports.urls')),
     path('api/subscription/', include('subscriptions.urls')),
+    path('api/admin/', include('adminpanel.urls')),
     path('api/', include(router.urls)),
 ]

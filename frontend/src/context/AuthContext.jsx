@@ -60,6 +60,8 @@ export function AuthProvider({ children }) {
     subscription,
     loading,
     isOwner: user?.role === 'owner',
+    // Admins of the whole platform ("Staff status" in the Django admin) see the admin dashboard
+    isAdmin: Boolean(user?.is_staff),
     login,
     register,
     logout,

@@ -4,7 +4,6 @@ Reading data (GET) is not logged, only actions: adding, changing and deleting re
 and password changes. A problem while logging never stops the user's request.
 """
 
-import ipaddress
 import json
 import logging
 import re
@@ -13,6 +12,7 @@ from accounts.models import User
 from accounts.utils import normalize_phone
 
 from .models import ActivityLog
+from .services import record
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +20,9 @@ Action = ActivityLog.Action
 
 WRITE_METHODS = {'POST', 'PUT', 'PATCH', 'DELETE'}
 
-# Too frequent or not done by a person, so not worth a line each
-SKIP_PATHS = ('/api/auth/refresh/', '/api/notifications/', '/api/subscription/sonicpesa/webhook/')
+# Too frequent or not done by a person, so not worth a line each.
+# The admin dashboard (/api/admin/) writes its own, more detailed lines.
+SKIP_PATHS = ('/api/auth/refresh/', '/api/notifications/', '/api/subscription/sonicpesa/webhook/', '/api/admin/')
 
 # Paths whose request has the phone number of a user who isn't logged in yet
 PHONE_PATHS = ('/api/auth/login/', '/api/auth/password-reset/', '/api/auth/password-reset/confirm/')
@@ -81,16 +82,7 @@ def _log(request, response, phone):
     if failed_login:
         action, summary = Action.LOGIN_FAILED, f'Failed login for {phone or "unknown number"}'
 
-    user = _acting_user(request, data, phone)
-    ActivityLog.objects.create(
-        user=user,
-        business_id=getattr(user, 'business_id', None),
-        action=action,
-        summary=summary[:255],
-        method=request.method,
-        path=request.path[:255],
-        ip_address=_client_ip(request),
-    )
+    record(request, _acting_user(request, data, phone), action, summary)
 
 
 def _describe(request, data):
@@ -141,14 +133,4 @@ def _phone_from_body(request):
     try:
         return str(json.loads(request.body or b'{}').get('phone') or '')[:20] or None
     except (ValueError, AttributeError):
-        return None
-
-
-def _client_ip(request):
-    # On Render, the visitor's address is the first one in X-Forwarded-For
-    forwarded = request.META.get('HTTP_X_FORWARDED_FOR', '')
-    ip = forwarded.split(',')[0].strip() if forwarded else request.META.get('REMOTE_ADDR', '')
-    try:
-        return str(ipaddress.ip_address(ip))
-    except ValueError:
         return None

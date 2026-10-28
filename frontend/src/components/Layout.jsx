@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { to: '/reports', icon: 'chart', label: 'nav.reports', ownerOnly: true },
   { to: '/subscription', icon: 'card', label: 'nav.subscription' },
   { to: '/settings', icon: 'settings', label: 'nav.settings' },
+  { to: '/manage', icon: 'users', label: 'nav.admin', adminOnly: true },
 ]
 
 export function Logo({ className = '' }) {
@@ -40,10 +41,14 @@ export function LanguageToggle({ className = '' }) {
 
 function NavList({ onNavigate }) {
   const { t } = useLanguage()
-  const { isOwner } = useAuth()
+  const { user, isOwner, isAdmin } = useAuth()
+  // Shop pages need a shop; admins without one only see the admin dashboard
+  const visible = NAV_ITEMS.filter((item) =>
+    item.adminOnly ? isAdmin : Boolean(user.business) && (isOwner || !item.ownerOnly),
+  )
   return (
     <nav className="flex flex-col gap-1">
-      {NAV_ITEMS.filter((item) => isOwner || !item.ownerOnly).map((item) => (
+      {visible.map((item) => (
         <NavLink
           key={item.to}
           to={item.to}
@@ -68,9 +73,10 @@ function UserBox() {
   const { user, logout } = useAuth()
   return (
     <div className="border-t border-line pt-4">
-      <p className="truncate text-sm font-semibold text-ink">{user.business?.name}</p>
+      <p className="truncate text-sm font-semibold text-ink">{user.business?.name ?? t('nav.admin')}</p>
       <p className="truncate text-xs text-muted">
-        {user.first_name} · {user.role === 'owner' ? t('settings.owner') : t('settings.staffRole')}
+        {user.first_name}
+        {user.business && ` · ${user.role === 'owner' ? t('settings.owner') : t('settings.staffRole')}`}
       </p>
       <div className="mt-3 flex items-center justify-between">
         <LanguageToggle className="-ml-2" />
@@ -120,6 +126,7 @@ function SubscriptionBanner() {
 // The page frame: sidebar, phone menu, banner and the current page
 function Shell() {
   const { t } = useLanguage()
+  const { user } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
 
   return (
@@ -131,7 +138,7 @@ function Shell() {
             <Link to="/">
               <Logo />
             </Link>
-            <NotificationBell align="left" />
+            {user.business && <NotificationBell align="left" />}
           </div>
           <NavList />
         </div>
@@ -144,7 +151,7 @@ function Shell() {
           <Logo />
         </Link>
         <div className="flex items-center gap-1">
-          <NotificationBell />
+          {user.business && <NotificationBell />}
           <button
             onClick={() => setMenuOpen(true)}
             className="rounded-lg p-2 text-ink-2 hover:bg-soft"

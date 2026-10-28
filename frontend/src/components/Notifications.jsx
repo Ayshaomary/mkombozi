@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { api } from '../lib/api'
 import { formatDate, formatDateTime, formatMoney, formatQuantity } from '../lib/format'
@@ -13,8 +14,12 @@ export function NotificationsProvider({ children }) {
   const [items, setItems] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
   const location = useLocation()
+  const { user } = useAuth()
+  // Notifications belong to a shop; admins without one have none
+  const hasBusiness = Boolean(user?.business)
 
   const refresh = useCallback(async () => {
+    if (!hasBusiness) return
     try {
       const data = await api.get('/notifications/')
       setItems(data.results)
@@ -22,7 +27,7 @@ export function NotificationsProvider({ children }) {
     } catch {
       // Not important enough to show an error; we try again soon
     }
-  }, [])
+  }, [hasBusiness])
 
   // Check when the app opens, on every page change, and every 2 minutes
   useEffect(() => {

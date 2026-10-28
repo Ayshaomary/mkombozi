@@ -1,7 +1,8 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import { Loading } from './components/ui'
 import { useAuth } from './context/AuthContext'
+import AdminDashboardPage from './pages/AdminDashboardPage'
 import DashboardPage from './pages/DashboardPage'
 import ExpensesPage from './pages/ExpensesPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
@@ -28,6 +29,19 @@ function OwnerOnly({ children }) {
   return isOwner ? children : <Navigate to="/sell" replace />
 }
 
+// Shop pages need a shop. Admins who have none go to the admin dashboard.
+function RequireBusiness() {
+  const { user, isAdmin } = useAuth()
+  if (user.business) return <Outlet />
+  return <Navigate to={isAdmin ? '/manage' : '/login'} replace />
+}
+
+// The admin dashboard, only for platform admins
+function AdminOnly({ children }) {
+  const { isAdmin } = useAuth()
+  return isAdmin ? children : <Navigate to="/" replace />
+}
+
 // Login and register pages: skip them if already logged in
 function GuestOnly({ children }) {
   const { user, loading } = useAuth()
@@ -43,14 +57,17 @@ export default function App() {
       <Route path="/forgot-password" element={<GuestOnly><ForgotPasswordPage /></GuestOnly>} />
 
       <Route element={<RequireAuth><Layout /></RequireAuth>}>
-        <Route index element={<OwnerOnly><DashboardPage /></OwnerOnly>} />
-        <Route path="sell" element={<NewSalePage />} />
-        <Route path="sales" element={<SalesPage />} />
-        <Route path="products" element={<ProductsPage />} />
-        <Route path="expenses" element={<ExpensesPage />} />
-        <Route path="reports" element={<OwnerOnly><ReportsPage /></OwnerOnly>} />
-        <Route path="subscription" element={<SubscriptionPage />} />
-        <Route path="settings" element={<SettingsPage />} />
+        <Route path="manage" element={<AdminOnly><AdminDashboardPage /></AdminOnly>} />
+        <Route element={<RequireBusiness />}>
+          <Route index element={<OwnerOnly><DashboardPage /></OwnerOnly>} />
+          <Route path="sell" element={<NewSalePage />} />
+          <Route path="sales" element={<SalesPage />} />
+          <Route path="products" element={<ProductsPage />} />
+          <Route path="expenses" element={<ExpensesPage />} />
+          <Route path="reports" element={<OwnerOnly><ReportsPage /></OwnerOnly>} />
+          <Route path="subscription" element={<SubscriptionPage />} />
+          <Route path="settings" element={<SettingsPage />} />
+        </Route>
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
