@@ -4,15 +4,20 @@ import Icon from '../components/Icon'
 import { useNotifications } from '../components/Notifications'
 import { Badge, Button, Card, EmptyState, ErrorBox, Input, Loading, Modal, PageHeader, PeriodFilter, Select } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
+import { useOffline } from '../context/OfflineContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { api } from '../lib/api'
 import { EXPENSE_CATEGORIES } from '../lib/constants'
 import { formatDate, formatMoney, todayISO } from '../lib/format'
+import { newClientId } from '../lib/outbox'
 import { useApi, usePaginated } from '../lib/useApi'
 
 function ExpenseFormModal({ expense, onClose, onSaved }) {
   const { t } = useLanguage()
+  const offline = useOffline()
   const isNew = !expense.id
+  // Kept for the whole form, so sending again (or later from the outbox) never saves it twice
+  const [clientId] = useState(newClientId)
   const [form, setForm] = useState(() => ({
     category: expense.category ?? 'other',
     amount: expense.amount ? String(Number(expense.amount)) : '',
@@ -32,13 +37,27 @@ function ExpenseFormModal({ expense, onClose, onSaved }) {
     event.preventDefault()
     setSaving(true)
     setError(null)
+    const body = isNew ? { ...form, client_id: clientId } : form
     try {
-      if (isNew) await api.post('/expenses/', form)
-      else await api.patch(`/expenses/${expense.id}/`, form)
+      if (isNew) await api.post('/expenses/', body)
+      else await api.patch(`/expenses/${expense.id}/`, body)
       onSaved()
     } catch (err) {
-      setError(err)
-      setSaving(false)
+      // No internet: a new expense waits on this phone and is sent later (see OfflineContext)
+      const savedOffline =
+        err.status === 0 &&
+        isNew &&
+        offline.save({
+          id: clientId,
+          kind: 'expense',
+          body,
+          summary: { amount: form.amount, label: t(`expenseCategory.${form.category}`) },
+        })
+      if (savedOffline) onSaved()
+      else {
+        setError(err)
+        setSaving(false)
+      }
     }
   }
 

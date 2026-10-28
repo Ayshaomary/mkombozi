@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.utils import timezone
 from rest_framework import serializers
 
 from accounts.scoping import BusinessScopedPrimaryKeyRelatedField
@@ -29,13 +30,16 @@ class SaleSerializer(serializers.ModelSerializer):
     payment_method_display = serializers.CharField(source='get_payment_method_display', read_only=True)
     created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True, default=None)
     discount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal('0'), required=False)
+    # Sent by phones that record sales offline (see sales.views.SaleViewSet.create)
+    client_id = serializers.UUIDField(required=False, allow_null=True)
+    recorded_offline = serializers.BooleanField(required=False)
 
     class Meta:
         model = Sale
         fields = [
             'id', 'receipt_number', 'customer_name', 'customer_phone', 'payment_method',
             'payment_method_display', 'discount', 'total_amount', 'total_cost', 'profit',
-            'note', 'sold_at', 'items', 'created_by_name', 'created_at',
+            'note', 'sold_at', 'items', 'created_by_name', 'created_at', 'client_id', 'recorded_offline',
         ]
         read_only_fields = ['receipt_number', 'total_amount', 'total_cost', 'created_at']
 
@@ -46,6 +50,10 @@ class SaleSerializer(serializers.ModelSerializer):
 
     def validate_customer_phone(self, value):
         return clean_phone(value) if value else value
+
+    def validate_sold_at(self, value):
+        # A phone with a wrong clock must not put a sale in the future
+        return min(value, timezone.now())
 
 
 class SaleListSerializer(serializers.ModelSerializer):
@@ -60,5 +68,5 @@ class SaleListSerializer(serializers.ModelSerializer):
         model = Sale
         fields = [
             'id', 'receipt_number', 'customer_name', 'payment_method', 'payment_method_display',
-            'total_amount', 'profit', 'item_count', 'sold_at', 'created_by_name',
+            'total_amount', 'profit', 'item_count', 'sold_at', 'created_by_name', 'recorded_offline',
         ]

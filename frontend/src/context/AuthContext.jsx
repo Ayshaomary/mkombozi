@@ -1,7 +1,28 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { api, getTokens, setTokens } from '../lib/api'
+import { clearOfflineData } from '../lib/outbox'
 
 const AuthContext = createContext(null)
+
+// The logged-in user's details from the last time we were online, so the app opens without internet
+const SAVED_USER_KEY = 'mukombozi_user'
+
+function savedUser() {
+  try {
+    return JSON.parse(localStorage.getItem(SAVED_USER_KEY))
+  } catch {
+    return null
+  }
+}
+
+function saveUser(user) {
+  try {
+    if (user) localStorage.setItem(SAVED_USER_KEY, JSON.stringify(user))
+    else localStorage.removeItem(SAVED_USER_KEY)
+  } catch {
+    // Not saved; the app then needs internet to open next time
+  }
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
@@ -20,10 +41,14 @@ export function AuthProvider({ children }) {
   const refreshUser = useCallback(async () => {
     const me = await api.get('/auth/me/')
     setUser(me)
+    saveUser(me)
     return me
   }, [])
 
   const logout = useCallback(() => {
+    // The outbox is kept (it is per user), but the saved pages of data are not
+    clearOfflineData()
+    saveUser(null)
     setTokens(null)
     setUser(null)
     setSubscription(null)
@@ -34,7 +59,12 @@ export function AuthProvider({ children }) {
     if (!getTokens()) return
     refreshUser()
       .then(loadSubscription)
-      .catch(logout)
+      .catch((err) => {
+        // No internet: stay logged in with the saved details instead of logging out
+        const saved = err.status === 0 && savedUser()
+        if (saved) setUser(saved)
+        else logout()
+      })
       .finally(() => setLoading(false))
   }, [refreshUser, loadSubscription, logout])
 
@@ -47,6 +77,7 @@ export function AuthProvider({ children }) {
   const startSession = async (data) => {
     setTokens({ access: data.access, refresh: data.refresh })
     setUser(data.user)
+    saveUser(data.user)
     await loadSubscription()
     return data.user
   }

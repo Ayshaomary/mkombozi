@@ -3,11 +3,13 @@ import Icon from '../components/Icon'
 import { useNotifications } from '../components/Notifications'
 import { Badge, Button, Card, EmptyState, ErrorBox, Input, Loading, Modal, PageHeader, PhoneInput, Select } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
+import { useOffline } from '../context/OfflineContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { api } from '../lib/api'
 import { PAYMENT_METHODS } from '../lib/constants'
 import { formatDateTime, formatMoney, formatQuantity } from '../lib/format'
 import { useApi } from '../lib/useApi'
+import { newClientId } from '../lib/outbox'
 import { useDebounce } from '../lib/useDebounce'
 
 function Receipt({ sale, onClose }) {
@@ -17,7 +19,7 @@ function Receipt({ sale, onClose }) {
     <Modal
       open
       onClose={onClose}
-      title={t('pos.success')}
+      title={sale.offline ? t('pos.savedOffline') : t('pos.success')}
       footer={
         <>
           <Button variant="secondary" icon="printer" onClick={() => window.print()}>
@@ -29,6 +31,12 @@ function Receipt({ sale, onClose }) {
         </>
       }
     >
+      {sale.offline && (
+        <p className="mb-4 flex items-start gap-2 rounded-lg bg-warn-soft p-3 text-sm text-warn-ink">
+          <Icon name="repeat" size={16} className="mt-0.5 shrink-0" />
+          {t('pos.savedOfflineText')}
+        </p>
+      )}
       <div className="print-area text-sm">
         <div className="mb-3 text-center">
           <p className="text-base font-bold text-ink">{user.business?.name}</p>
@@ -75,9 +83,15 @@ function Receipt({ sale, onClose }) {
 
 export default function NewSalePage() {
   const { t } = useLanguage()
+  const offline = useOffline()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search)
-  const products = useApi('/products/', { active: 'true', search: debouncedSearch, page_size: 100 })
+  // Offline, only the full list saved last time is available, so search within it on the phone
+  const products = useApi('/products/', {
+    active: 'true',
+    search: offline.online ? debouncedSearch : '',
+    page_size: 100,
+  })
   const [cart, setCart] = useState([])
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [discount, setDiscount] = useState('')
@@ -113,37 +127,88 @@ export default function NewSalePage() {
   const overStock = cart.some((line) => Number(line.quantity) > Number(line.product.stock_quantity))
   const invalid = cart.some((line) => !(Number(line.quantity) > 0) || line.unit_price === '')
 
+  const clearCart = () => {
+    setCart([])
+    setDiscount('')
+    setCustomer({ customer_name: '', customer_phone: '', note: '' })
+    setShowDetails(false)
+    setPaymentMethod('cash')
+  }
+
+  // No internet: keep the sale on this phone; it is sent automatically later (see OfflineContext)
+  const saveOffline = (body) => {
+    const sale = {
+      offline: true,
+      receipt_number: t('pos.pendingReceipt'),
+      sold_at: body.sold_at,
+      payment_method: body.payment_method,
+      customer_name: body.customer_name,
+      discount: body.discount,
+      total_amount: total,
+      items: cart.map((line) => ({
+        id: line.product.id,
+        product_name: line.product.name,
+        quantity: line.quantity,
+        unit_price: line.unit_price,
+        subtotal: Number(line.quantity) * Number(line.unit_price),
+      })),
+    }
+    const saved = offline.save({
+      id: body.client_id,
+      kind: 'sale',
+      body: { ...body, recorded_offline: true },
+      summary: { amount: total, label: sale.items.map((item) => item.product_name).join(', ') },
+    })
+    if (!saved) return false
+    // Show the lower stock on this phone straight away
+    products.setData((data) =>
+      data && {
+        ...data,
+        results: data.results.map((p) => {
+          const line = cart.find((l) => l.product.id === p.id)
+          return line ? { ...p, stock_quantity: String(Number(p.stock_quantity) - Number(line.quantity)) } : p
+        }),
+      },
+    )
+    setReceipt(sale)
+    clearCart()
+    return true
+  }
+
   const completeSale = async () => {
     setSaving(true)
     setError(null)
+    const body = {
+      // The same id is used if the sale has to be sent again later, so it is never saved twice
+      client_id: newClientId(),
+      sold_at: new Date().toISOString(),
+      items: cart.map((line) => ({
+        product: line.product.id,
+        quantity: line.quantity,
+        unit_price: line.unit_price,
+      })),
+      payment_method: paymentMethod,
+      discount: discount || 0,
+      ...customer,
+    }
     try {
-      const sale = await api.post('/sales/', {
-        items: cart.map((line) => ({
-          product: line.product.id,
-          quantity: line.quantity,
-          unit_price: line.unit_price,
-        })),
-        payment_method: paymentMethod,
-        discount: discount || 0,
-        ...customer,
-      })
+      const sale = await api.post('/sales/', body)
       setReceipt(sale)
-      setCart([])
-      setDiscount('')
-      setCustomer({ customer_name: '', customer_phone: '', note: '' })
-      setShowDetails(false)
-      setPaymentMethod('cash')
+      clearCart()
       products.reload()
       // The sale may have triggered a low-stock alert
       notifications.refresh()
     } catch (err) {
-      setError(err)
+      if (err.status !== 0 || !saveOffline(body)) setError(err)
     } finally {
       setSaving(false)
     }
   }
 
-  const productList = products.data?.results ?? []
+  const query = search.trim().toLowerCase()
+  const productList = (products.data?.results ?? []).filter(
+    (p) => offline.online || !query || p.name.toLowerCase().includes(query) || (p.sku || '').toLowerCase().includes(query),
+  )
 
   return (
     <>
@@ -178,7 +243,8 @@ export default function NewSalePage() {
                 return (
                   <button
                     key={p.id}
-                    disabled={out}
+                    // Offline the stock shown may be old (another phone may have added stock), so allow it
+                    disabled={out && offline.online}
                     onClick={() => addToCart(p)}
                     className={`relative rounded-xl border p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                       inCart ? 'border-brand bg-brand-soft' : 'border-line bg-card hover:border-brand'
@@ -352,7 +418,7 @@ export default function NewSalePage() {
                   icon="check"
                   className="w-full"
                   loading={saving}
-                  disabled={overStock || invalid || Number(discount) > subtotal}
+                  disabled={(overStock && offline.online) || invalid || Number(discount) > subtotal}
                   onClick={completeSale}
                 >
                   {t('pos.complete')}

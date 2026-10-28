@@ -62,6 +62,16 @@ async function refreshAccessToken() {
   return true
 }
 
+// Tells the app whether the server could be reached (see OfflineContext). A phone can say it is
+// online while it has no internet (e.g. Wi-Fi without data), so we go by real requests.
+export const NETWORK_EVENT = 'mukombozi:network'
+let serverReachable = true
+export const lastServerReachable = () => serverReachable
+function reportNetwork(online) {
+  serverReachable = online
+  window.dispatchEvent(new CustomEvent(NETWORK_EVENT, { detail: { online } }))
+}
+
 // Shared so that several requests failing at once trigger only one refresh
 let refreshing = null
 
@@ -82,8 +92,11 @@ export async function request(path, { method = 'GET', body, params, retry = true
   try {
     response = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined })
   } catch {
+    reportNetwork(false)
     throw new ApiError(0, { detail: 'network' })
   }
+  // The service worker answered with saved data because the server couldn't be reached
+  reportNetwork(!response.headers.get('X-Mukombozi-Offline'))
 
   // Access token expired: get a new one with the refresh token and try once more
   if (response.status === 401 && retry && tokens?.refresh) {

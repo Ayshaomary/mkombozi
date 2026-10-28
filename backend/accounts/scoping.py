@@ -1,6 +1,21 @@
 """Tools that keep each business's data separate from every other business."""
 
+import uuid
+
 from rest_framework import serializers
+
+
+def find_by_client_id(queryset, client_id):
+    """The record a phone already sent with this client_id, if any.
+
+    Phones that record sales or expenses offline may send the same one twice (for example when the
+    network drops before the answer arrives), so the second time we return the first record.
+    """
+    try:
+        client_id = uuid.UUID(str(client_id))
+    except (TypeError, ValueError, AttributeError):
+        return None
+    return queryset.filter(client_id=client_id).first()
 
 
 class BusinessScopedMixin:

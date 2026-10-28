@@ -21,7 +21,10 @@ def create_sale(business, user, items, **sale_fields):
     """Save a sale and reduce stock for every item. Either everything is saved or nothing is.
 
     `items` is a list of {'product': Product, 'quantity': Decimal, 'unit_price': Decimal or None}.
+    A sale recorded offline is kept even without enough stock: the money was already received,
+    and the product's stock goes below zero so the owner sees it needs checking.
     """
+    offline = sale_fields.get('recorded_offline', False)
     # Lock the business row so two sales saved at the same time get different receipt numbers
     Business.objects.select_for_update().get(pk=business.pk)
 
@@ -31,7 +34,7 @@ def create_sale(business, user, items, **sale_fields):
         totals[item['product'].pk] += item['quantity']
     for item in items:
         product = item['product']
-        if totals[product.pk] > product.stock_quantity:
+        if totals[product.pk] > product.stock_quantity and not offline:
             raise ValidationError(
                 {'items': f'Not enough stock for "{product.name}". Available: {product.stock_quantity}.'}
             )
@@ -56,7 +59,10 @@ def create_sale(business, user, items, **sale_fields):
             unit_cost=product.cost_price,
             subtotal=subtotal,
         )
-        change_stock(product, -item['quantity'], StockMovement.Type.SALE, user, f'Sale {sale.receipt_number}')
+        change_stock(
+            product, -item['quantity'], StockMovement.Type.SALE, user, f'Sale {sale.receipt_number}',
+            allow_negative=offline,
+        )
         items_total += subtotal
         total_cost += product.cost_price * item['quantity']
 

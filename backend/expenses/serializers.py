@@ -12,12 +12,14 @@ class ExpenseSerializer(serializers.ModelSerializer):
     category_display = serializers.CharField(source='get_category_display', read_only=True)
     created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True, default=None)
     is_recurring = serializers.SerializerMethodField()
+    # Sent by phones that record expenses offline (see expenses.views.ExpenseViewSet.create)
+    client_id = serializers.UUIDField(required=False, allow_null=True)
 
     class Meta:
         model = Expense
         fields = [
             'id', 'category', 'category_display', 'amount', 'description', 'date',
-            'is_recurring', 'created_by_name', 'created_at',
+            'is_recurring', 'created_by_name', 'created_at', 'client_id',
         ]
         read_only_fields = ['created_at']
 

@@ -7,16 +7,17 @@ from .models import Product, StockMovement
 
 
 @transaction.atomic
-def change_stock(product, quantity, movement_type, user=None, note=''):
+def change_stock(product, quantity, movement_type, user=None, note='', allow_negative=False):
     """Add (positive quantity) or remove (negative quantity) stock and record the movement.
 
     The product row is locked while we update it, so two cashiers selling the same item at
-    the same moment cannot both sell the last one.
+    the same moment cannot both sell the last one. `allow_negative` is for sales made offline:
+    the money was already received, so the sale is kept and the owner is asked to check stock.
     """
     product = Product.objects.select_for_update().get(pk=product.pk)
     old_quantity = product.stock_quantity
     new_quantity = old_quantity + quantity
-    if new_quantity < 0:
+    if new_quantity < 0 and not allow_negative:
         raise ValidationError(
             {'quantity': f'Not enough stock for "{product.name}". Available: {product.stock_quantity}.'}
         )

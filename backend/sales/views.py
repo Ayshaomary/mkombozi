@@ -1,9 +1,10 @@
+from django.db import IntegrityError
 from django.db.models import Count, Q, Sum
 from rest_framework import mixins, status, viewsets
 from rest_framework.response import Response
 
 from accounts.permissions import HasBusiness, IsOwnerOrCreateOnly
-from accounts.scoping import BusinessScopedMixin
+from accounts.scoping import BusinessScopedMixin, find_by_client_id
 from reports.dates import date_range_from_params
 from subscriptions.permissions import HasActiveSubscription
 
@@ -60,11 +61,21 @@ class SaleViewSet(
         return response
 
     def create(self, request, *args, **kwargs):
+        # A phone that lost the network may send the same sale again: answer with the one already saved
+        if existing := find_by_client_id(self.get_queryset(), request.data.get('client_id')):
+            return Response(self.get_serializer(existing).data, status=status.HTTP_200_OK)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = dict(serializer.validated_data)
         items = data.pop('items')
-        sale = create_sale(request.user.business, request.user, items, **data)
+        try:
+            sale = create_sale(request.user.business, request.user, items, **data)
+        except IntegrityError:
+            # The same sale arrived twice at the same moment; the other request saved it
+            existing = find_by_client_id(self.get_queryset(), data.get('client_id'))
+            if existing is None:
+                raise
+            return Response(self.get_serializer(existing).data, status=status.HTTP_200_OK)
         return Response(self.get_serializer(sale).data, status=status.HTTP_201_CREATED)
 
     def perform_destroy(self, instance):

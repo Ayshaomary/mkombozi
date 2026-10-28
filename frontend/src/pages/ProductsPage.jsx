@@ -543,7 +543,12 @@ export default function ProductsPage() {
                   <p className="tabular font-semibold text-ink">{formatQuantity(p.stock_quantity)}</p>
                   {p.is_low_stock ? (
                     <Badge tone={Number(p.stock_quantity) <= 0 ? 'bad' : 'warn'}>
-                      {Number(p.stock_quantity) <= 0 ? t('pos.outOfStock') : t('product.low')}
+                      {/* Below zero: sales made offline sold more than the stock on record */}
+                      {Number(p.stock_quantity) < 0
+                        ? t('product.checkStock')
+                        : Number(p.stock_quantity) <= 0
+                          ? t('pos.outOfStock')
+                          : t('product.low')}
                     </Badge>
                   ) : (
                     <p className="text-xs text-muted">{t('product.stock')}</p>

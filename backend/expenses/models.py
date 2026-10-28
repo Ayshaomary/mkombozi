@@ -38,9 +38,15 @@ class Expense(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # Made by the phone, so an expense sent twice (e.g. after the network dropped) is saved only once
+    client_id = models.UUIDField(null=True, blank=True, editable=False)
+
     class Meta:
         ordering = ['-date', '-id']
         indexes = [models.Index(fields=['business', 'date'])]
+        constraints = [
+            models.UniqueConstraint(fields=['business', 'client_id'], name='unique_expense_client_id_per_business'),
+        ]
 
     def __str__(self):
         return f'{self.get_category_display()} - TZS {self.amount:,.0f} ({self.date})'

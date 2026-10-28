@@ -27,6 +27,10 @@ class Sale(models.Model):
     note = models.CharField(max_length=255, blank=True)
     # When the sale happened (can be earlier than created_at if recorded later)
     sold_at = models.DateTimeField(default=timezone.now)
+    # Made by the phone, so a sale sent twice (e.g. after the network dropped) is saved only once
+    client_id = models.UUIDField(null=True, blank=True, editable=False)
+    # Recorded without internet and sent later; stock may then have gone below zero
+    recorded_offline = models.BooleanField(default=False)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True
     )
@@ -36,6 +40,7 @@ class Sale(models.Model):
         ordering = ['-sold_at', '-id']
         constraints = [
             models.UniqueConstraint(fields=['business', 'receipt_number'], name='unique_receipt_per_business'),
+            models.UniqueConstraint(fields=['business', 'client_id'], name='unique_sale_client_id_per_business'),
         ]
         indexes = [models.Index(fields=['business', 'sold_at'])]
 

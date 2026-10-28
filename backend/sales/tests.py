@@ -109,3 +109,62 @@ class SaleTests(TestCase):
         )
         response = self.sell([{'product': other_product.pk, 'quantity': '1'}])
         self.assertEqual(response.status_code, 400)
+
+
+class OfflineSaleTests(TestCase):
+    """Sales recorded on a phone without internet and sent later."""
+
+    def setUp(self):
+        self.business, self.owner = make_business()
+        self.client = client_for(self.owner)
+        self.sugar = Product.objects.create(
+            business=self.business, name='Sukari 1kg', cost_price=2800, selling_price=3200, stock_quantity=1
+        )
+
+    def send(self, client_id='5b0c6c1e-8d1f-4a52-9a40-1b2c3d4e5f60', quantity='1', **extra):
+        return self.client.post('/api/sales/', {
+            'items': [{'product': self.sugar.pk, 'quantity': quantity, 'unit_price': '3200'}],
+            'payment_method': 'cash', 'client_id': client_id, 'recorded_offline': True, **extra,
+        }, format='json')
+
+    def test_same_sale_sent_twice_is_saved_once(self):
+        first = self.send()
+        second = self.send()
+        self.assertEqual(first.status_code, 201, first.data)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(first.data['id'], second.data['id'])
+        self.assertEqual(Sale.objects.count(), 1)
+        self.sugar.refresh_from_db()
+        self.assertEqual(self.sugar.stock_quantity, 0)
+
+    def test_offline_sale_is_kept_when_stock_runs_out(self):
+        response = self.send(quantity='3')
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertTrue(response.data['recorded_offline'])
+        self.sugar.refresh_from_db()
+        self.assertEqual(self.sugar.stock_quantity, -2)
+
+    def test_online_sale_still_needs_enough_stock(self):
+        response = self.client.post('/api/sales/', {
+            'items': [{'product': self.sugar.pk, 'quantity': '3'}], 'payment_method': 'cash',
+        }, format='json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_sale_keeps_the_time_it_happened(self):
+        response = self.send(sold_at='2026-10-20T09:30:00+03:00')
+        self.assertEqual(Sale.objects.get(pk=response.data['id']).sold_at.isoformat(), '2026-10-20T06:30:00+00:00')
+
+    def test_future_time_from_a_wrong_clock_becomes_now(self):
+        response = self.send(sold_at='2099-01-01T00:00:00Z')
+        self.assertLess(Sale.objects.get(pk=response.data['id']).sold_at.year, 2099)
+
+    def test_client_ids_are_per_business(self):
+        self.send()
+        other_business, other_owner = make_business(name='Duka B', phone='0712000009')
+        tea = Product.objects.create(business=other_business, name='Chai', cost_price=1, selling_price=2, stock_quantity=5)
+        response = client_for(other_owner).post('/api/sales/', {
+            'items': [{'product': tea.pk, 'quantity': '1'}], 'payment_method': 'cash',
+            'client_id': '5b0c6c1e-8d1f-4a52-9a40-1b2c3d4e5f60',
+        }, format='json')
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(Sale.objects.count(), 2)

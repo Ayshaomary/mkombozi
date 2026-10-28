@@ -1,9 +1,11 @@
+from django.db import IntegrityError
 from django.db.models import Sum
 from django.utils import timezone
-from rest_framework import viewsets
+from rest_framework import status, viewsets
+from rest_framework.response import Response
 
 from accounts.permissions import HasBusiness, IsOwner, IsOwnerOrCreateOnly
-from accounts.scoping import BusinessScopedMixin
+from accounts.scoping import BusinessScopedMixin, find_by_client_id
 from reports.dates import date_range_from_params
 from subscriptions.permissions import HasActiveSubscription
 
@@ -31,6 +33,18 @@ class ExpenseViewSet(BusinessScopedMixin, viewsets.ModelViewSet):
             if category := params.get('category'):
                 queryset = queryset.filter(category=category)
         return queryset
+
+    def create(self, request, *args, **kwargs):
+        # A phone that lost the network may send the same expense again: answer with the one already saved
+        if existing := find_by_client_id(self.get_queryset(), request.data.get('client_id')):
+            return Response(self.get_serializer(existing).data, status=status.HTTP_200_OK)
+        try:
+            return super().create(request, *args, **kwargs)
+        except IntegrityError:
+            existing = find_by_client_id(self.get_queryset(), request.data.get('client_id'))
+            if existing is None:
+                raise
+            return Response(self.get_serializer(existing).data, status=status.HTTP_200_OK)
 
     def list(self, request, *args, **kwargs):
         response = super().list(request, *args, **kwargs)
