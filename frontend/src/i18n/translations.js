@@ -116,7 +116,7 @@ export const translations = {
     },
     admin: {
       title: 'Admin dashboard',
-      subtitle: 'All shops, users and activity on SAVIOR',
+      subtitle: 'All shops, users and activity on SAVIOR Inventory System',
       overview: 'Overview',
       activity: 'Activity',
       users: 'Users',
@@ -714,7 +714,7 @@ export const translations = {
     },
     admin: {
       title: 'Dashibodi ya usimamizi',
-      subtitle: 'Maduka, watumiaji na shughuli zote za SAVIOR',
+      subtitle: 'Maduka, watumiaji na shughuli zote za SAVIOR Inventory System',
       overview: 'Muhtasari',
       activity: 'Shughuli',
       users: 'Watumiaji',

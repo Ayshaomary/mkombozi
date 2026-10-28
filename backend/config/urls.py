@@ -23,8 +23,8 @@ router.register('notifications', NotificationViewSet, basename='notification')
 router.register('recipes', RecipeViewSet, basename='recipe')
 router.register('production', ProductionRunViewSet, basename='production-run')
 
-admin.site.site_header = 'SAVIOR Admin'
-admin.site.site_title = 'SAVIOR'
+admin.site.site_header = 'SAVIOR Inventory System - Admin'
+admin.site.site_title = 'SAVIOR Inventory System'
 
 urlpatterns = [
     path('', home, name='home'),

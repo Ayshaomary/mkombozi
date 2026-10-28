@@ -1,4 +1,4 @@
-# SAVIOR
+# SAVIOR Inventory System
 
 > The app was first called MUKOMBOZI (Kiswahili for "savior"). Internal names still use `mukombozi`:
 > the Render services and web addresses, the database, the project folder and keys saved in browsers.

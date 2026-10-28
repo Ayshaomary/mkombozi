@@ -25,9 +25,12 @@ const NAV_ITEMS = [
 
 export function Logo({ className = '' }) {
   return (
-    <span className={`inline-flex items-center gap-2 font-bold tracking-tight text-ink ${className}`}>
+    <span className={`inline-flex items-center gap-2 text-ink ${className}`}>
       <img src="/favicon.svg" alt="" className="size-8" />
-      SAVIOR
+      <span className="leading-none">
+        <span className="block font-bold tracking-tight">SAVIOR</span>
+        <span className="block text-[11px] font-medium text-muted">Inventory System</span>
+      </span>
     </span>
   )
 }
