@@ -104,6 +104,7 @@ class ProductionRunViewSet(
             {
                 'id': p.id, 'name': p.name, 'unit': p.unit, 'cost_price': p.cost_price,
                 'selling_price': p.selling_price, 'stock_quantity': p.stock_quantity,
+                'low_stock_threshold': p.low_stock_threshold, 'is_low_stock': p.is_low_stock,
                 'is_material': p.is_material, 'times_used': p.times_used,
             }
             for p in products

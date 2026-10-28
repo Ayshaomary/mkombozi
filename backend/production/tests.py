@@ -235,3 +235,32 @@ class TypedMaterialTests(TestCase):
         self.assertEqual(response.status_code, 201, response.data)
         self.assertEqual(response.data['items'][0]['material_name'], 'Mafuta')
         self.assertTrue(Product.objects.get(name='Mafuta').is_material)
+
+
+class MaterialStockTests(TestCase):
+    def setUp(self):
+        self.business, self.owner = make_business()
+        self.client = client_for(self.owner)
+        self.flour = Product.objects.create(
+            business=self.business, name='Unga', unit='kg', cost_price=2000, selling_price=0,
+            stock_quantity=25, low_stock_threshold=10, is_material=True,
+        )
+        self.sugar = Product.objects.create(
+            business=self.business, name='Sukari', unit='kg', cost_price=3000, selling_price=0,
+            stock_quantity=3, low_stock_threshold=5, is_material=True,
+        )
+        self.bread = Product.objects.create(business=self.business, name='Mkate', cost_price=0, selling_price=1000)
+
+    def test_recipe_says_how_many_can_be_made_now(self):
+        response = self.client.post('/api/recipes/', {
+            'product': self.bread.pk, 'output_quantity': '50',
+            'items': [{'material': self.flour.pk, 'quantity': '10'}, {'material': self.sugar.pk, 'quantity': '1'}],
+        }, format='json')
+        # Flour allows 2.5 batches, sugar 3: flour runs out first -> 2.5 x 50 = 125 loaves
+        self.assertEqual(response.data['can_make'], '125')
+        self.assertEqual(response.data['limited_by'], 'Unga')
+
+    def test_materials_list_shows_low_stock(self):
+        data = {p['name']: p for p in self.client.get('/api/production/materials/').data}
+        self.assertTrue(data['Sukari']['is_low_stock'])
+        self.assertFalse(data['Unga']['is_low_stock'])

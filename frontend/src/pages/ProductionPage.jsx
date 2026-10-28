@@ -11,7 +11,9 @@ import {
   Modal,
   PageHeader,
   PeriodFilter,
+  SegmentedControl,
   Select,
+  StatTile,
 } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
@@ -521,6 +523,9 @@ function RecipesModal({ recipes, onClose, onChanged }) {
                   {t('production.recipeCost', { cost: formatMoney(recipe.cost_per_unit) })}
                   {Number(recipe.selling_price) > 0 && ` · ${t('production.sellsFor', { price: formatMoney(recipe.selling_price) })}`}
                 </p>
+                <p className={`text-xs ${Number(recipe.can_make) > 0 ? 'text-good' : 'text-bad'}`}>
+                  {t('production.canMake', { count: formatQuantity(recipe.can_make) })}
+                </p>
               </div>
               {isOwner && (
                 <div className="flex shrink-0 gap-1">
@@ -548,9 +553,280 @@ function RecipesModal({ recipes, onClose, onChanged }) {
   )
 }
 
+function AddStockModal({ material, onClose, onSaved }) {
+  const { t } = useLanguage()
+  const [form, setForm] = useState({ quantity: '', price: String(Number(material.cost_price)), note: '' })
+  const [error, setError] = useState(null)
+  const [saving, setSaving] = useState(false)
+
+  const save = async (event) => {
+    event.preventDefault()
+    setSaving(true)
+    setError(null)
+    try {
+      await api.post(`/products/${material.id}/stock/`, {
+        movement_type: 'purchase',
+        quantity: form.quantity,
+        new_cost_price: form.price || undefined,
+        note: form.note,
+      })
+      onSaved()
+    } catch (err) {
+      setError(err)
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={t('production.addStockTitle', { name: material.name })}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button type="submit" form="material-stock-form" loading={saving}>
+            {t('common.save')}
+          </Button>
+        </>
+      }
+    >
+      <form id="material-stock-form" onSubmit={save} className="space-y-4">
+        <ErrorBox error={error && !error.fields?.quantity ? error : null} />
+        <p className="text-sm text-ink-2">
+          {t('production.inStock', { qty: `${formatQuantity(material.stock_quantity)} ${t(`units.${material.unit}`)}` })}
+        </p>
+        <Input
+          label={t('production.boughtQuantity', { unit: t(`units.${material.unit}`) })}
+          type="number"
+          min="0"
+          step="any"
+          inputMode="decimal"
+          required
+          autoFocus
+          value={form.quantity}
+          onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+          error={error?.fields?.quantity}
+        />
+        <Input
+          label={t('production.pricePerUnit')}
+          hint={t('production.priceHint')}
+          type="number"
+          min="0"
+          step="any"
+          inputMode="decimal"
+          value={form.price}
+          onChange={(e) => setForm({ ...form, price: e.target.value })}
+        />
+        <Input
+          label={`${t('production.note')} (${t('common.optional')})`}
+          value={form.note}
+          onChange={(e) => setForm({ ...form, note: e.target.value })}
+        />
+        {Number(form.quantity) > 0 && Number(form.price) > 0 && (
+          <p className="text-sm text-ink-2">
+            {t('production.paid', { amount: formatMoney(Number(form.quantity) * Number(form.price)) })}
+          </p>
+        )}
+      </form>
+    </Modal>
+  )
+}
+
+function NewMaterialModal({ onClose, onSaved }) {
+  const { t } = useLanguage()
+  const [form, setForm] = useState({ name: '', unit: 'kg', cost_price: '', opening_stock: '', low_stock_threshold: '5' })
+  const [error, setError] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const field = (name) => ({
+    value: form[name],
+    onChange: (e) => setForm({ ...form, [name]: e.target.value }),
+    error: error?.fields?.[name],
+  })
+
+  const save = async (event) => {
+    event.preventDefault()
+    setSaving(true)
+    setError(null)
+    try {
+      await api.post('/products/', {
+        ...form,
+        opening_stock: form.opening_stock || 0,
+        low_stock_threshold: form.low_stock_threshold || 0,
+        selling_price: 0,
+        is_material: true,
+      })
+      onSaved()
+    } catch (err) {
+      setError(err)
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={t('production.newMaterialTitle')}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button type="submit" form="new-material-form" loading={saving}>
+            {t('common.save')}
+          </Button>
+        </>
+      }
+    >
+      <form id="new-material-form" onSubmit={save} className="space-y-4">
+        {error && Object.keys(error.fields).length === 0 && <ErrorBox error={error} />}
+        <Input label={t('product.name')} required autoFocus {...field('name')} />
+        <div className="grid grid-cols-2 gap-3">
+          <Select
+            label={t('product.unit')}
+            options={UNITS.map((u) => ({ value: u, label: t(`units.${u}`) }))}
+            {...field('unit')}
+          />
+          <Input label={t('production.pricePerUnit')} type="number" min="0" step="any" inputMode="decimal" required {...field('cost_price')} />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Input label={t('product.openingStock')} type="number" min="0" step="any" inputMode="decimal" {...field('opening_stock')} />
+          <Input
+            label={t('product.lowStockThreshold')}
+            type="number"
+            min="0"
+            step="any"
+            inputMode="decimal"
+            {...field('low_stock_threshold')}
+          />
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+// Raw materials in stock: what's left, what it's worth, what's running low, and what can be made
+function MaterialStockTab({ recipes, onChanged }) {
+  const { t } = useLanguage()
+  const { isOwner } = useAuth()
+  const stock = useStockItems()
+  const [modal, setModal] = useState(null)
+  const materials = stock.items.filter((p) => p.is_material)
+  const value = materials.reduce((sum, p) => sum + Math.max(Number(p.stock_quantity), 0) * Number(p.cost_price), 0)
+  const low = materials.filter((p) => p.is_low_stock)
+
+  const changed = () => {
+    setModal(null)
+    stock.reload()
+    onChanged()
+  }
+
+  return (
+    <>
+      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <StatTile label={t('production.stockValue')} value={formatMoney(value)} sub={t('production.stockValueHint')} />
+        <StatTile label={t('production.materialsCount')} value={materials.length} />
+        <StatTile
+          label={t('production.runningLow')}
+          value={low.length}
+          sub={low.map((p) => p.name).join(', ')}
+          subTone={low.length > 0 ? 'bad' : undefined}
+        />
+      </div>
+
+      {recipes.length > 0 && (
+        <Card title={t('production.canMakeTitle')} padded={false} className="mb-5">
+          <ul className="divide-y divide-line">
+            {recipes.map((recipe) => (
+              <li key={recipe.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
+                <span className="font-medium text-ink">{recipe.product_name}</span>
+                <span className="text-right">
+                  <span className={`tabular font-semibold ${Number(recipe.can_make) > 0 ? 'text-ink' : 'text-bad'}`}>
+                    {formatQuantity(recipe.can_make)}
+                  </span>
+                  {recipe.limited_by && (
+                    <span className="block text-xs text-muted">
+                      {t('production.limitedBy', { name: recipe.limited_by })}
+                    </span>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      <Card
+        title={t('production.materialStock')}
+        padded={false}
+        action={
+          isOwner && (
+            <Button size="sm" icon="plus" onClick={() => setModal({ type: 'new' })}>
+              {t('production.newMaterialTitle')}
+            </Button>
+          )
+        }
+      >
+        <ErrorBox error={stock.error} onRetry={stock.reload} />
+        {stock.loading && !stock.data ? (
+          <Loading />
+        ) : materials.length === 0 ? (
+          <EmptyState icon="box" title={t('production.noMaterials')}>
+            <p className="max-w-sm text-sm text-ink-2">{t('production.noMaterialsHint')}</p>
+          </EmptyState>
+        ) : (
+          <ul className="divide-y divide-line">
+            {materials.map((m) => {
+              const qty = Number(m.stock_quantity)
+              return (
+                <li key={m.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
+                  <div className="min-w-0">
+                    <p className="flex flex-wrap items-center gap-2 font-medium text-ink">
+                      {m.name}
+                      {qty <= 0 ? (
+                        <Badge tone="bad">{t('pos.outOfStock')}</Badge>
+                      ) : (
+                        m.is_low_stock && <Badge tone="warn">{t('product.low')}</Badge>
+                      )}
+                    </p>
+                    <p className="text-xs text-muted">
+                      {formatMoney(m.cost_price)} / {t(`units.${m.unit}`)}
+                      {m.times_used > 0 && ` · ${t('production.usedTimes', { count: m.times_used })}`}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <div className="text-right">
+                      <p className={`tabular font-semibold ${qty <= 0 ? 'text-bad' : 'text-ink'}`}>
+                        {formatQuantity(m.stock_quantity)} {t(`units.${m.unit}`)}
+                      </p>
+                      <p className="tabular text-xs text-muted">{formatMoney(Math.max(qty, 0) * Number(m.cost_price))}</p>
+                    </div>
+                    {isOwner && (
+                      <Button size="sm" variant="secondary" icon="plus" onClick={() => setModal({ type: 'add', material: m })}>
+                        {t('production.addStock')}
+                      </Button>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </Card>
+
+      {modal?.type === 'add' && <AddStockModal material={modal.material} onClose={() => setModal(null)} onSaved={changed} />}
+      {modal?.type === 'new' && <NewMaterialModal onClose={() => setModal(null)} onSaved={changed} />}
+    </>
+  )
+}
+
 export default function ProductionPage() {
   const { t, lang } = useLanguage()
   const { isOwner } = useAuth()
+  const [tab, setTab] = useState('batches')
   const [period, setPeriod] = useState('month')
   const [modal, setModal] = useState(null)
   const [error, setError] = useState(null)
@@ -584,69 +860,85 @@ export default function ProductionPage() {
           </>
         }
       />
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <PeriodFilter value={period} onChange={setPeriod} includeAll />
-        {runs.total !== null && (
-          <p className="text-sm">
-            <span className="text-muted">{t('production.periodCost')} </span>
-            <span className="tabular font-semibold text-ink">{formatMoney(runs.total)}</span>
-            <span className="text-muted"> · {t('production.batches', { count: runs.count })}</span>
-          </p>
-        )}
+      <div className="mb-5">
+        <SegmentedControl
+          label={t('production.title')}
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: 'batches', label: t('production.batchesTab') },
+            { value: 'stock', label: t('production.stockTab') },
+          ]}
+        />
       </div>
-      <ErrorBox error={error || runs.error} onRetry={error ? undefined : runs.reload} />
+      {tab === 'stock' && <MaterialStockTab recipes={recipes} onChanged={recipesApi.reload} />}
+      {tab === 'batches' && (
+        <>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <PeriodFilter value={period} onChange={setPeriod} includeAll />
+          {runs.total !== null && (
+            <p className="text-sm">
+              <span className="text-muted">{t('production.periodCost')} </span>
+              <span className="tabular font-semibold text-ink">{formatMoney(runs.total)}</span>
+              <span className="text-muted"> · {t('production.batches', { count: runs.count })}</span>
+            </p>
+          )}
+        </div>
+        <ErrorBox error={error || runs.error} onRetry={error ? undefined : runs.reload} />
 
-      <Card padded={false}>
-        {runs.loading && runs.items.length === 0 ? (
-          <Loading />
-        ) : runs.items.length === 0 ? (
-          <EmptyState icon="stack" title={t('production.empty')}>
-            <p className="max-w-sm text-sm text-ink-2">{t('production.emptyHint')}</p>
-          </EmptyState>
-        ) : (
-          <ul className="divide-y divide-line">
-            {runs.items.map((run) => (
-              <li key={run.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
-                <div className="min-w-0">
-                  <p className="font-medium text-ink">
-                    {formatQuantity(run.quantity)} {run.unit ? t(`units.${run.unit}`) : ''} · {run.product_name}
-                  </p>
-                  <p className="text-xs text-muted">
-                    {[run.batch_number, formatDateTime(run.produced_at, lang), run.created_by_name].filter(Boolean).join(' · ')}
-                  </p>
-                  <p className="truncate text-xs text-muted">
-                    {run.items.map((i) => `${formatQuantity(i.quantity)} ${i.material_name}`).join(', ')}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-3">
-                  <div className="text-right">
-                    <p className="tabular font-semibold text-ink">{formatMoney(run.total_cost)}</p>
-                    <p className="tabular text-xs text-muted">
-                      {formatMoney(run.unit_cost)} {t('production.each')}
+        <Card padded={false}>
+          {runs.loading && runs.items.length === 0 ? (
+            <Loading />
+          ) : runs.items.length === 0 ? (
+            <EmptyState icon="stack" title={t('production.empty')}>
+              <p className="max-w-sm text-sm text-ink-2">{t('production.emptyHint')}</p>
+            </EmptyState>
+          ) : (
+            <ul className="divide-y divide-line">
+              {runs.items.map((run) => (
+                <li key={run.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
+                  <div className="min-w-0">
+                    <p className="font-medium text-ink">
+                      {formatQuantity(run.quantity)} {run.unit ? t(`units.${run.unit}`) : ''} · {run.product_name}
+                    </p>
+                    <p className="text-xs text-muted">
+                      {[run.batch_number, formatDateTime(run.produced_at, lang), run.created_by_name].filter(Boolean).join(' · ')}
+                    </p>
+                    <p className="truncate text-xs text-muted">
+                      {run.items.map((i) => `${formatQuantity(i.quantity)} ${i.material_name}`).join(', ')}
                     </p>
                   </div>
-                  {isOwner && (
-                    <button
-                      onClick={() => cancel(run)}
-                      className="rounded-lg p-2 text-muted hover:bg-bad-soft hover:text-bad"
-                      aria-label={t('production.cancel')}
-                      title={t('production.cancel')}
-                    >
-                      <Icon name="trash" size={18} />
-                    </button>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <div className="text-right">
+                      <p className="tabular font-semibold text-ink">{formatMoney(run.total_cost)}</p>
+                      <p className="tabular text-xs text-muted">
+                        {formatMoney(run.unit_cost)} {t('production.each')}
+                      </p>
+                    </div>
+                    {isOwner && (
+                      <button
+                        onClick={() => cancel(run)}
+                        className="rounded-lg p-2 text-muted hover:bg-bad-soft hover:text-bad"
+                        aria-label={t('production.cancel')}
+                        title={t('production.cancel')}
+                      >
+                        <Icon name="trash" size={18} />
+                      </button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+        {runs.hasMore && (
+          <div className="mt-4 text-center">
+            <Button variant="secondary" loading={runs.loading} onClick={runs.loadMore}>
+              {t('common.loadMore')}
+            </Button>
+          </div>
         )}
-      </Card>
-      {runs.hasMore && (
-        <div className="mt-4 text-center">
-          <Button variant="secondary" loading={runs.loading} onClick={runs.loadMore}>
-            {t('common.loadMore')}
-          </Button>
-        </div>
+        </>
       )}
 
       {modal === 'record' && (
@@ -656,6 +948,8 @@ export default function ProductionPage() {
           onSaved={() => {
             setModal(null)
             runs.reload()
+            // Stock changed, so what can be made changed too
+            recipesApi.reload()
           }}
         />
       )}

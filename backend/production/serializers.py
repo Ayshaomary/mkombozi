@@ -61,16 +61,35 @@ class RecipeSerializer(serializers.ModelSerializer):
     # At today's buying prices of the materials
     cost_per_batch = serializers.SerializerMethodField()
     cost_per_unit = serializers.SerializerMethodField()
+    # With the materials in stock now: how many can be made, and which material runs out first
+    can_make = serializers.SerializerMethodField()
+    limited_by = serializers.SerializerMethodField()
 
     class Meta:
         model = Recipe
         fields = [
             'id', 'product', 'product_name', 'product_unit', 'selling_price', 'output_quantity',
-            'note', 'items', 'cost_per_batch', 'cost_per_unit', 'updated_at',
+            'note', 'items', 'cost_per_batch', 'cost_per_unit', 'can_make', 'limited_by', 'updated_at',
         ]
 
     def get_cost_per_batch(self, recipe):
         return str(sum((item.material.cost_price * item.quantity for item in recipe.items.all()), Decimal(0)))
+
+    def _limit(self, recipe):
+        """(how many batches the stock allows, the material that runs out first)"""
+        limits = [
+            (max(item.material.stock_quantity, Decimal(0)) / item.quantity, item.material.name)
+            for item in recipe.items.all()
+        ]
+        return min(limits) if limits else (Decimal(0), None)
+
+    def get_can_make(self, recipe):
+        batches, _ = self._limit(recipe)
+        # Whole items only: half a loaf can't be sold
+        return str(int(batches * recipe.output_quantity))
+
+    def get_limited_by(self, recipe):
+        return self._limit(recipe)[1]
 
     def get_cost_per_unit(self, recipe):
         return str((Decimal(self.get_cost_per_batch(recipe)) / recipe.output_quantity).quantize(Decimal('0.01')))
