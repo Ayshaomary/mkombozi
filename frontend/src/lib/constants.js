@@ -28,6 +28,17 @@ export const SHOP_TYPES = [
   'other',
 ]
 
+// What the owner can allow each staff member (same as Permission in accounts/models.py)
+export const PERMISSIONS = ['sales', 'expenses', 'products', 'production', 'reports', 'manage']
+
+// Quick choices for the owner; they can also tick boxes one by one
+export const PERMISSION_PRESETS = {
+  salesOnly: ['sales', 'expenses'],
+  products: ['sales', 'expenses', 'products'],
+  productsProduction: ['sales', 'expenses', 'products', 'production'],
+  everything: PERMISSIONS,
+}
+
 // Same as Product.Unit in inventory/models.py
 export const UNITS = ['piece', 'kg', 'litre', 'metre', 'box', 'packet', 'dozen', 'bag']
 

@@ -39,6 +39,25 @@ class Business(models.Model):
         return self.name
 
 
+class Permission(models.TextChoices):
+    """Parts of the app the owner can open to each staff member. The owner can always do everything.
+
+    Only the owner manages staff, the business details and the subscription.
+    """
+
+    SALES = 'sales', 'Record sales'
+    EXPENSES = 'expenses', 'Record expenses'
+    PRODUCTS = 'products', 'Manage products and stock'
+    PRODUCTION = 'production', 'Production'
+    REPORTS = 'reports', 'See profit and reports'
+    MANAGE = 'manage', 'Edit and delete records'
+
+
+def default_staff_permissions():
+    # What staff could always do before permissions could be chosen
+    return [Permission.SALES, Permission.EXPENSES]
+
+
 class UserManager(BaseUserManager):
     """Creates users who log in with a phone number instead of a username."""
 
@@ -70,6 +89,8 @@ class User(AbstractUser):
         Business, on_delete=models.CASCADE, related_name='users', null=True, blank=True
     )
     role = models.CharField(max_length=10, choices=Role.choices, default=Role.OWNER)
+    # For staff: the Permission values the owner allowed. Owners ignore this and can do everything.
+    permissions = models.JSONField(default=default_staff_permissions, blank=True)
     # Points to the user's current profile photo (see Avatar); a new photo gets a new key
     avatar_key = models.UUIDField(null=True, blank=True, editable=False)
 
@@ -84,6 +105,13 @@ class User(AbstractUser):
     @property
     def is_owner(self):
         return self.role == self.Role.OWNER
+
+    def can(self, permission):
+        return self.is_owner or permission in (self.permissions or [])
+
+    @property
+    def effective_permissions(self):
+        return list(Permission.values) if self.is_owner else [p for p in Permission.values if p in (self.permissions or [])]
 
 
 class PasswordResetCode(models.Model):

@@ -304,3 +304,101 @@ class ProfilePhotoTests(TestCase):
         response = self.client.patch('/api/auth/me/', {'email': 'juma@example.com'}, format='json')
         self.assertEqual(response.data['email'], 'juma@example.com')
         self.assertEqual(self.client.patch('/api/auth/me/', {'email': 'not-an-email'}, format='json').status_code, 400)
+
+
+class StaffPermissionTests(TestCase):
+    """The owner chooses what each staff member may do."""
+
+    def setUp(self):
+        from inventory.models import Product
+
+        self.business, self.owner = make_business()
+        self.owner_client = client_for(self.owner)
+        response = self.owner_client.post('/api/staff/', {
+            'phone': '0712000002', 'first_name': 'Neema', 'password': 'siri-kali-123',
+        }, format='json')
+        self.staff_id = response.data['id']
+        self.staff = User.objects.get(pk=self.staff_id)
+        self.client = client_for(self.staff)
+        self.soap = Product.objects.create(
+            business=self.business, name='Sabuni', cost_price=1000, selling_price=1500, stock_quantity=10
+        )
+        self.flour = Product.objects.create(
+            business=self.business, name='Unga', cost_price=2000, selling_price=0, stock_quantity=10, is_material=True
+        )
+
+    def allow(self, *permissions):
+        response = self.owner_client.patch(f'/api/staff/{self.staff_id}/', {'permissions': list(permissions)}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.staff.refresh_from_db()
+        return response
+
+    def sell(self):
+        return self.client.post('/api/sales/', {
+            'items': [{'product': self.soap.pk, 'quantity': '1'}], 'payment_method': 'cash',
+        }, format='json')
+
+    def test_new_staff_can_sell_and_record_expenses_only(self):
+        self.assertEqual(self.client.get('/api/auth/me/').data['permissions'], ['sales', 'expenses'])
+        self.assertEqual(self.sell().status_code, 201)
+        self.assertEqual(self.client.post('/api/expenses/', {'category': 'transport', 'amount': '500'}).status_code, 201)
+        self.assertEqual(self.client.get('/api/products/').status_code, 200)  # needed to sell
+        self.assertEqual(self.client.post('/api/products/', {'name': 'X', 'cost_price': 1, 'selling_price': 2}).status_code, 403)
+        self.assertEqual(self.client.get('/api/production/').status_code, 403)
+        self.assertEqual(self.client.get('/api/reports/dashboard/').status_code, 403)
+
+    def test_owner_has_every_permission(self):
+        self.assertEqual(
+            self.owner_client.get('/api/auth/me/').data['permissions'],
+            ['sales', 'expenses', 'products', 'production', 'reports', 'manage'],
+        )
+
+    def test_products_permission(self):
+        self.allow('sales', 'products')
+        response = self.client.post('/api/products/', {'name': 'Chai', 'cost_price': 1, 'selling_price': 2}, format='json')
+        self.assertEqual(response.status_code, 201)
+        stock = self.client.post(f'/api/products/{self.soap.pk}/stock/', {'movement_type': 'purchase', 'quantity': '5'}, format='json')
+        self.assertEqual(stock.status_code, 200)
+        # Deleting needs "edit and delete" as well
+        self.assertEqual(self.client.delete(f'/api/products/{self.soap.pk}/').status_code, 403)
+        # Without "expenses" now
+        self.assertEqual(self.client.get('/api/expenses/').status_code, 403)
+
+    def test_production_only_touches_raw_materials(self):
+        self.allow('sales', 'production')
+        self.assertEqual(self.client.get('/api/production/').status_code, 200)
+        restock = self.client.post(f'/api/products/{self.flour.pk}/stock/', {'movement_type': 'purchase', 'quantity': '5'}, format='json')
+        self.assertEqual(restock.status_code, 200)
+        not_material = self.client.post(f'/api/products/{self.soap.pk}/stock/', {'movement_type': 'purchase', 'quantity': '5'}, format='json')
+        self.assertEqual(not_material.status_code, 403)
+        new_material = self.client.post('/api/products/', {
+            'name': 'Mafuta', 'cost_price': 4000, 'selling_price': 0, 'is_material': True,
+        }, format='json')
+        self.assertEqual(new_material.status_code, 201)
+        new_goods = self.client.post('/api/products/', {'name': 'Juisi', 'cost_price': 1, 'selling_price': 2}, format='json')
+        self.assertEqual(new_goods.status_code, 403)
+
+    def test_everything_lets_staff_see_reports_and_delete(self):
+        self.allow('sales', 'expenses', 'products', 'production', 'reports', 'manage')
+        sale_id = self.sell().data['id']
+        self.assertEqual(self.client.get('/api/reports/dashboard/').status_code, 200)
+        self.assertEqual(self.client.delete(f'/api/sales/{sale_id}/').status_code, 204)
+
+    def test_without_sales_permission_cannot_sell(self):
+        self.allow('expenses')
+        self.assertEqual(self.sell().status_code, 403)
+
+    def test_only_the_owner_sets_permissions(self):
+        self.allow('sales', 'manage')
+        response = self.client.patch(f'/api/staff/{self.staff_id}/', {'permissions': ['reports']}, format='json')
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(self.owner_client.patch(
+            f'/api/staff/{self.staff_id}/', {'permissions': ['payments']}, format='json'
+        ).status_code, 400)
+
+    def test_staff_can_be_added_with_permissions(self):
+        response = self.owner_client.post('/api/staff/', {
+            'phone': '0712000003', 'first_name': 'Baraka', 'password': 'siri-kali-123',
+            'permissions': ['production', 'sales'],
+        }, format='json')
+        self.assertEqual(response.data['permissions'], ['sales', 'production'])

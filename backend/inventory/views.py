@@ -2,9 +2,12 @@ from django.db import transaction
 from django.db.models import Count, F, Q
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import SAFE_METHODS, BasePermission
 from rest_framework.response import Response
 
-from accounts.permissions import HasBusiness, IsOwnerOrReadOnly
+from accounts.models import Permission
+from accounts.permissions import HasBusiness, can
 from accounts.scoping import BusinessScopedMixin
 from subscriptions.permissions import HasActiveSubscription
 
@@ -18,11 +21,37 @@ from .serializers import (
 from .services import change_stock
 
 
+class ProductsPermission(BasePermission):
+    """Everyone in the shop sees products (to sell them). Changing them needs the "products"
+    permission; staff with only "production" may add and restock raw materials (checked in the view).
+    Deleting also needs "edit and delete"."""
+
+    message = 'You are not allowed to do this. Ask the shop owner.'
+
+    def has_permission(self, request, view):
+        user = request.user
+        if request.method in SAFE_METHODS:
+            return True
+        if request.method == 'DELETE':
+            return user.can(Permission.PRODUCTS) and user.can(Permission.MANAGE)
+        return user.can(Permission.PRODUCTS) or user.can(Permission.PRODUCTION)
+
+
+def check_material_only(user, is_material):
+    """Staff with "production" but not "products" may only touch raw materials."""
+    if not user.can(Permission.PRODUCTS) and not is_material:
+        raise PermissionDenied('You may only add or restock raw materials. Ask the shop owner.')
+
+
 class CategoryViewSet(BusinessScopedMixin, viewsets.ModelViewSet):
     # Django drops Meta.ordering on queries with Count(), so set the order again
     queryset = Category.objects.annotate(product_count=Count('products')).order_by('name')
     serializer_class = CategorySerializer
-    permission_classes = [HasBusiness, IsOwnerOrReadOnly, HasActiveSubscription]
+    permission_classes = [
+        HasBusiness,
+        can(create=Permission.PRODUCTS, change=Permission.PRODUCTS, delete=Permission.PRODUCTS),
+        HasActiveSubscription,
+    ]
     pagination_class = None
 
 
@@ -35,7 +64,7 @@ class ProductViewSet(BusinessScopedMixin, viewsets.ModelViewSet):
 
     queryset = Product.objects.select_related('category')
     serializer_class = ProductSerializer
-    permission_classes = [HasBusiness, IsOwnerOrReadOnly, HasActiveSubscription]
+    permission_classes = [HasBusiness, ProductsPermission, HasActiveSubscription]
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -54,6 +83,7 @@ class ProductViewSet(BusinessScopedMixin, viewsets.ModelViewSet):
 
     @transaction.atomic
     def perform_create(self, serializer):
+        check_material_only(self.request.user, serializer.validated_data.get('is_material', False))
         opening_stock = serializer.validated_data.pop('opening_stock', 0)
         super().perform_create(serializer)
         if opening_stock:
@@ -63,6 +93,10 @@ class ProductViewSet(BusinessScopedMixin, viewsets.ModelViewSet):
             serializer.instance.refresh_from_db()
 
     def perform_update(self, serializer):
+        check_material_only(
+            self.request.user,
+            serializer.instance.is_material and serializer.validated_data.get('is_material', True),
+        )
         serializer.validated_data.pop('opening_stock', None)
         serializer.save()
 
@@ -70,6 +104,7 @@ class ProductViewSet(BusinessScopedMixin, viewsets.ModelViewSet):
     def stock(self, request, pk=None):
         """Add stock (purchase, return) or correct it (adjustment). POST /api/products/<id>/stock/"""
         product = self.get_object()
+        check_material_only(request.user, product.is_material)
         serializer = StockChangeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data

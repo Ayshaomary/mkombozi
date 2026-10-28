@@ -80,9 +80,75 @@ body {
 }
 
 /* When printing a receipt, print only the receipt */
+/* A list being printed (components/PrintButton.jsx): only shown on paper */
+@page {
+  margin: 12mm;
+}
+
+.print-sheet {
+  display: none;
+}
+
 @media print {
   body * {
     visibility: hidden;
+  }
+  /* Lists can be many pages long, so the app is taken out and the sheet flows normally */
+  body.printing-list #root {
+    display: none;
+  }
+  body.printing-list .print-sheet {
+    display: block;
+    position: static;
+    font-size: 11px;
+  }
+  .print-sheet h1 {
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .print-sheet h2 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-top: 2px;
+  }
+  .print-sheet header p {
+    margin-top: 2px;
+  }
+  .print-sheet table {
+    width: 100%;
+    margin-top: 10px;
+    border-collapse: collapse;
+  }
+  .print-sheet th,
+  .print-sheet td {
+    border-bottom: 1px solid #999;
+    padding: 4px 6px;
+    text-align: left;
+    vertical-align: top;
+  }
+  .print-sheet th {
+    border-bottom: 2px solid #000;
+  }
+  .print-sheet .num {
+    text-align: right;
+    white-space: nowrap;
+  }
+  .print-sheet thead {
+    display: table-header-group; /* column names again on every page */
+  }
+  .print-sheet tr {
+    break-inside: avoid;
+  }
+  .print-sheet footer {
+    margin-top: 10px;
+    margin-left: auto;
+    width: 50%;
+  }
+  .print-sheet footer p {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid #999;
+    padding: 3px 0;
   }
   .print-area,
   .print-area * {

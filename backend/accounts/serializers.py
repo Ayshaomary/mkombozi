@@ -6,7 +6,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from subscriptions.models import Subscription
 
-from .models import Business, User
+from .models import Business, Permission, User
 from . import photos
 from .utils import normalize_phone, phone_too_long
 
@@ -40,9 +40,12 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'phone', 'first_name', 'last_name', 'email', 'role', 'business',
-            'is_staff', 'is_superuser', 'avatar_key',
+            'is_staff', 'is_superuser', 'avatar_key', 'permissions',
         ]
         read_only_fields = ['phone', 'role', 'is_staff', 'is_superuser', 'avatar_key']
+
+    # What this user may do in the app (an owner: everything)
+    permissions = serializers.ListField(source='effective_permissions', read_only=True)
 
 
 class PhoneField(serializers.CharField):
@@ -104,11 +107,17 @@ class LoginSerializer(TokenObtainPairSerializer):
 
 class StaffSerializer(serializers.ModelSerializer):
     phone = PhoneField(max_length=20)
+    permissions = serializers.ListField(
+        child=serializers.ChoiceField(choices=Permission.choices), required=False,
+        help_text='What the staff member may do. Left out: record sales and expenses.',
+    )
     password = serializers.CharField(write_only=True, min_length=8)
 
     class Meta:
         model = User
-        fields = ['id', 'phone', 'first_name', 'last_name', 'role', 'password', 'date_joined', 'avatar_key']
+        fields = [
+            'id', 'phone', 'first_name', 'last_name', 'role', 'password', 'date_joined', 'avatar_key', 'permissions',
+        ]
         read_only_fields = ['role', 'date_joined', 'avatar_key']
 
     def validate_phone(self, value):
@@ -116,8 +125,30 @@ class StaffSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('An account with this phone number already exists.')
         return value
 
+    def to_representation(self, user):
+        data = super().to_representation(user)
+        data['permissions'] = user.effective_permissions
+        return data
+
     def create(self, validated_data):
         return User.objects.create_user(role=User.Role.STAFF, **validated_data)
+
+
+class StaffAccessSerializer(serializers.ModelSerializer):
+    """The owner changes what a staff member may do."""
+
+    permissions = serializers.ListField(child=serializers.ChoiceField(choices=Permission.choices))
+
+    class Meta:
+        model = User
+        fields = ['permissions']
+
+    def validate_permissions(self, value):
+        # Same order every time, no repeats
+        return [p for p in Permission.values if p in value]
+
+    def to_representation(self, user):
+        return StaffSerializer(user).data
 
 
 class PasswordResetRequestSerializer(serializers.Serializer):

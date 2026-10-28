@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import Avatar from '../components/Avatar'
+import PermissionPicker from '../components/PermissionPicker'
 import { Badge, Button, Card, EmptyState, ErrorBox, Input, Loading, Modal, PageHeader, PhoneInput, SaveRow, Select } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { api } from '../lib/api'
-import { SHOP_TYPES } from '../lib/constants'
+import { PERMISSION_PRESETS, SHOP_TYPES } from '../lib/constants'
+import { presetOf } from '../lib/permissions'
 import { useApi } from '../lib/useApi'
 import { useSaveForm } from '../lib/useSaveForm'
 
@@ -43,7 +45,13 @@ function BusinessForm() {
 
 function AddStaffModal({ onClose, onSaved }) {
   const { t } = useLanguage()
-  const [form, setForm] = useState({ first_name: '', last_name: '', phone: '', password: '' })
+  const [form, setForm] = useState({
+    first_name: '',
+    last_name: '',
+    phone: '',
+    password: '',
+    permissions: PERMISSION_PRESETS.salesOnly,
+  })
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
   const field = (name) => ({
@@ -97,7 +105,51 @@ function AddStaffModal({ onClose, onSaved }) {
           required
           {...field('password')}
         />
+        <div>
+          <p className="mb-2 text-sm font-semibold text-ink">{t('access.whatCanDo')}</p>
+          <PermissionPicker value={form.permissions} onChange={(permissions) => setForm({ ...form, permissions })} />
+        </div>
       </form>
+    </Modal>
+  )
+}
+
+function AccessModal({ member, onClose, onSaved }) {
+  const { t } = useLanguage()
+  const [permissions, setPermissions] = useState(member.permissions)
+  const [error, setError] = useState(null)
+  const [saving, setSaving] = useState(false)
+
+  const save = async () => {
+    setSaving(true)
+    setError(null)
+    try {
+      await api.patch(`/staff/${member.id}/`, { permissions })
+      onSaved()
+    } catch (err) {
+      setError(err)
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={t('access.title', { name: member.first_name })}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button loading={saving} onClick={save}>
+            {t('common.save')}
+          </Button>
+        </>
+      }
+    >
+      <ErrorBox error={error} />
+      <PermissionPicker value={permissions} onChange={setPermissions} />
     </Modal>
   )
 }
@@ -106,6 +158,7 @@ function StaffSection() {
   const { t } = useLanguage()
   const { data, loading, error, reload } = useApi('/staff/')
   const [adding, setAdding] = useState(false)
+  const [editingAccess, setEditingAccess] = useState(null)
 
   const remove = async (member) => {
     if (!window.confirm(t('settings.removeStaffConfirm', { name: member.first_name }))) return
@@ -142,20 +195,42 @@ function StaffSection() {
                     {member.first_name} {member.last_name}
                   </p>
                   <p className="text-xs text-muted">{member.phone}</p>
+                  {member.role !== 'owner' && (
+                    <p className="text-xs text-ink-2">
+                      {presetOf(member.permissions) === 'custom'
+                        ? member.permissions.map((p) => t(`access.perm.${p}`)).join(', ') || t('access.nothing')
+                        : t(`access.preset.${presetOf(member.permissions)}`)}
+                    </p>
+                  )}
                 </div>
               </div>
               {member.role === 'owner' ? (
                 <Badge tone="good">{t('settings.owner')}</Badge>
               ) : (
-                <Button size="sm" variant="danger" onClick={() => remove(member)}>
-                  {t('settings.removeStaff')}
-                </Button>
+                <div className="flex shrink-0 gap-2">
+                  <Button size="sm" variant="secondary" onClick={() => setEditingAccess(member)}>
+                    {t('access.button')}
+                  </Button>
+                  <Button size="sm" variant="danger" onClick={() => remove(member)}>
+                    {t('settings.removeStaff')}
+                  </Button>
+                </div>
               )}
             </li>
           ))}
         </ul>
       ) : (
         <EmptyState icon="users" title={t('settings.noStaff')} />
+      )}
+      {editingAccess && (
+        <AccessModal
+          member={editingAccess}
+          onClose={() => setEditingAccess(null)}
+          onSaved={() => {
+            setEditingAccess(null)
+            reload()
+          }}
+        />
       )}
       {adding && (
         <AddStaffModal

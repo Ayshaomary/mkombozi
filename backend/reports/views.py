@@ -4,7 +4,8 @@ from django.utils import timezone
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import HasBusiness, IsOwner
+from accounts.models import Permission
+from accounts.permissions import HasBusiness, can
 from sales.models import Sale
 from sales.serializers import SaleListSerializer
 
@@ -15,7 +16,7 @@ from .dates import date_range_from_params
 class DashboardView(APIView):
     """Everything the home screen needs in one request."""
 
-    permission_classes = [HasBusiness, IsOwner]
+    permission_classes = [HasBusiness, can(read=Permission.REPORTS)]
 
     def get(self, request):
         business = request.user.business
@@ -35,7 +36,7 @@ class DashboardView(APIView):
 class SummaryReportView(APIView):
     """Profit & loss report. ?period=today|week|month|year or ?start=YYYY-MM-DD&end=YYYY-MM-DD"""
 
-    permission_classes = [HasBusiness, IsOwner]
+    permission_classes = [HasBusiness, can(read=Permission.REPORTS)]
 
     def get(self, request):
         business = request.user.business

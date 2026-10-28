@@ -2,6 +2,7 @@ import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import { Loading } from './components/ui'
 import { useAuth } from './context/AuthContext'
+import { homePath } from './lib/permissions'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import DashboardPage from './pages/DashboardPage'
 import ExpensesPage from './pages/ExpensesPage'
@@ -25,10 +26,16 @@ function RequireAuth({ children }) {
   return children
 }
 
-// Pages only the business owner may see; staff go to the sales screen
+// Pages only the business owner may see
 function OwnerOnly({ children }) {
-  const { isOwner } = useAuth()
-  return isOwner ? children : <Navigate to="/sell" replace />
+  const { user, isOwner } = useAuth()
+  return isOwner ? children : <Navigate to={homePath(user)} replace />
+}
+
+// Pages a staff member may open only if the owner allowed it (see Settings -> Staff)
+function Allowed({ permission, children }) {
+  const { user, can } = useAuth()
+  return can(permission) ? children : <Navigate to={homePath(user)} replace />
 }
 
 // Shop pages need a shop. Admins who have none go to the admin dashboard.
@@ -62,13 +69,13 @@ export default function App() {
         <Route path="manage" element={<AdminOnly><AdminDashboardPage /></AdminOnly>} />
         <Route path="profile" element={<ProfilePage />} />
         <Route element={<RequireBusiness />}>
-          <Route index element={<OwnerOnly><DashboardPage /></OwnerOnly>} />
-          <Route path="sell" element={<NewSalePage />} />
+          <Route index element={<Allowed permission="reports"><DashboardPage /></Allowed>} />
+          <Route path="sell" element={<Allowed permission="sales"><NewSalePage /></Allowed>} />
           <Route path="sales" element={<SalesPage />} />
           <Route path="products" element={<ProductsPage />} />
-          <Route path="expenses" element={<ExpensesPage />} />
-          <Route path="production" element={<ProductionPage />} />
-          <Route path="reports" element={<OwnerOnly><ReportsPage /></OwnerOnly>} />
+          <Route path="expenses" element={<Allowed permission="expenses"><ExpensesPage /></Allowed>} />
+          <Route path="production" element={<Allowed permission="production"><ProductionPage /></Allowed>} />
+          <Route path="reports" element={<Allowed permission="reports"><ReportsPage /></Allowed>} />
           <Route path="subscription" element={<SubscriptionPage />} />
           <Route path="settings" element={<OwnerOnly><SettingsPage /></OwnerOnly>} />
         </Route>

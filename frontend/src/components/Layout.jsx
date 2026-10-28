@@ -8,14 +8,15 @@ import Icon from './Icon'
 import { NotificationBell, NotificationsProvider } from './Notifications'
 import OfflineBar from './OfflineBar'
 
+// `permission`: shown only to users allowed it (any of a list); see lib/permissions.js
 const NAV_ITEMS = [
-  { to: '/', icon: 'home', label: 'nav.dashboard', ownerOnly: true, end: true },
-  { to: '/sell', icon: 'cart', label: 'nav.newSale' },
-  { to: '/sales', icon: 'receipt', label: 'nav.sales' },
+  { to: '/', icon: 'home', label: 'nav.dashboard', permission: 'reports', end: true },
+  { to: '/sell', icon: 'cart', label: 'nav.newSale', permission: 'sales' },
+  { to: '/sales', icon: 'receipt', label: 'nav.sales', permission: ['sales', 'reports'] },
   { to: '/products', icon: 'box', label: 'nav.products' },
-  { to: '/expenses', icon: 'wallet', label: 'nav.expenses' },
-  { to: '/production', icon: 'factory', label: 'nav.production' },
-  { to: '/reports', icon: 'chart', label: 'nav.reports', ownerOnly: true },
+  { to: '/expenses', icon: 'wallet', label: 'nav.expenses', permission: 'expenses' },
+  { to: '/production', icon: 'factory', label: 'nav.production', permission: 'production' },
+  { to: '/reports', icon: 'chart', label: 'nav.reports', permission: 'reports' },
   { to: '/subscription', icon: 'card', label: 'nav.subscription' },
   { to: '/settings', icon: 'settings', label: 'nav.settings', ownerOnly: true },
   { to: '/manage', icon: 'users', label: 'nav.admin', adminOnly: true },
@@ -46,10 +47,12 @@ export function LanguageToggle({ className = '' }) {
 
 function NavList({ onNavigate }) {
   const { t } = useLanguage()
-  const { user, isOwner, isAdmin } = useAuth()
+  const { user, isOwner, isAdmin, can } = useAuth()
+  const allowed = (item) =>
+    item.ownerOnly ? isOwner : !item.permission || [].concat(item.permission).some((permission) => can(permission))
   // Shop pages need a shop; admins without one only see the admin dashboard
-  const visible = NAV_ITEMS.filter((item) =>
-    item.everyone || (item.adminOnly ? isAdmin : Boolean(user.business) && (isOwner || !item.ownerOnly)),
+  const visible = NAV_ITEMS.filter(
+    (item) => item.everyone || (item.adminOnly ? isAdmin : Boolean(user.business) && allowed(item)),
   )
   return (
     <nav className="flex flex-col gap-1">

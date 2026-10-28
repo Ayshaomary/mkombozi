@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Icon from '../components/Icon'
 import { useNotifications } from '../components/Notifications'
+import PrintButton from '../components/PrintButton'
 import { Badge, Button, Card, EmptyState, ErrorBox, Input, Loading, Modal, PageHeader, PeriodFilter, Select } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useOffline } from '../context/OfflineContext'
@@ -10,7 +11,7 @@ import { api } from '../lib/api'
 import { EXPENSE_CATEGORIES } from '../lib/constants'
 import { formatDate, formatMoney, todayISO } from '../lib/format'
 import { newClientId } from '../lib/outbox'
-import { useApi, usePaginated } from '../lib/useApi'
+import { fetchAll, useApi, usePaginated } from '../lib/useApi'
 
 function ExpenseFormModal({ expense, onClose, onSaved }) {
   const { t } = useLanguage()
@@ -215,7 +216,7 @@ function RecurringExpensesModal({ onClose, onChanged }) {
 
 export default function ExpensesPage() {
   const { t, lang } = useLanguage()
-  const { isOwner } = useAuth()
+  const { can } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const [period, setPeriod] = useState('month')
   const [category, setCategory] = useState('')
@@ -223,7 +224,8 @@ export default function ExpensesPage() {
   const [showRecurring, setShowRecurring] = useState(false)
   const notifications = useNotifications()
 
-  const expenses = usePaginated('/expenses/', { period: period === 'all' ? '' : period, category })
+  const listParams = { period: period === 'all' ? '' : period, category }
+  const expenses = usePaginated('/expenses/', listParams)
 
   const closeForm = () => {
     setEditing(null)
@@ -246,7 +248,19 @@ export default function ExpensesPage() {
         title={t('expense.title')}
         actions={
           <>
-            {isOwner && (
+            <PrintButton
+              title={t('expense.title')}
+              subtitle={[t(`period.${period}`), category && t(`expenseCategory.${category}`)].filter(Boolean).join(' · ')}
+              load={() => fetchAll('/expenses/', listParams)}
+              columns={[
+                { label: t('common.date'), value: (e) => formatDate(e.date, lang) },
+                { label: t('expense.category'), value: (e) => t(`expenseCategory.${e.category}`) },
+                { label: t('expense.description'), value: (e) => e.description },
+                { label: t('common.amount'), value: (e) => formatMoney(e.amount), align: 'right' },
+              ]}
+              footer={(rows, total) => [[t('expense.total'), formatMoney(total)]]}
+            />
+            {can('manage') && (
               <Button variant="secondary" icon="repeat" onClick={() => setShowRecurring(true)}>
                 {t('recurring.title')}
               </Button>
@@ -302,7 +316,7 @@ export default function ExpensesPage() {
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <span className="tabular mr-2 text-sm font-semibold text-ink">{formatMoney(expense.amount)}</span>
-                  {isOwner && (
+                  {can('manage') && (
                     <>
                       <button
                         onClick={() => setEditing(expense)}

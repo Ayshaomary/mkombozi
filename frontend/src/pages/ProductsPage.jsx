@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Icon from '../components/Icon'
+import PrintButton from '../components/PrintButton'
 import {
   Badge,
   Button,
@@ -18,7 +19,7 @@ import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { api } from '../lib/api'
 import { formatDateTime, formatMoney, formatQuantity } from '../lib/format'
-import { useApi, usePaginated } from '../lib/useApi'
+import { fetchAll, useApi, usePaginated } from '../lib/useApi'
 import { useDebounce } from '../lib/useDebounce'
 import { SHOP_TYPES, UNITS } from '../lib/constants'
 
@@ -435,24 +436,22 @@ function IconButton({ icon, label, onClick, danger }) {
 
 export default function ProductsPage() {
   const { t } = useLanguage()
-  const { isOwner } = useAuth()
+  const { can } = useAuth()
+  const canEdit = can('products')
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
   const [lowStock, setLowStock] = useState(searchParams.get('low_stock') === '1')
   const [kind, setKind] = useState('')
   // Which modal is open: { type: 'form' | 'stock' | 'history' | 'categories', product }
-  const [modal, setModal] = useState(() => (searchParams.get('add') === '1' && isOwner ? { type: 'form', product: {} } : null))
+  const [modal, setModal] = useState(() => (searchParams.get('add') === '1' && canEdit ? { type: 'form', product: {} } : null))
   const debouncedSearch = useDebounce(search)
 
   const categoriesApi = useApi('/categories/')
   const categories = categoriesApi.data ?? []
-  const products = usePaginated('/products/', {
-    search: debouncedSearch,
-    category,
-    kind,
-    low_stock: lowStock ? 'true' : '',
-  })
+  const listParams = { search: debouncedSearch, category, kind, low_stock: lowStock ? 'true' : '' }
+  const products = usePaginated('/products/', listParams)
+  const showCost = canEdit || can('reports')
 
   const closeModal = () => {
     setModal(null)
@@ -480,18 +479,55 @@ export default function ProductsPage() {
     <>
       <PageHeader
         title={t('product.title')}
-        subtitle={isOwner ? undefined : t('product.viewOnly')}
+        subtitle={canEdit ? undefined : t('product.viewOnly')}
         actions={
-          isOwner && (
-            <>
-              <Button variant="secondary" icon="tag" onClick={() => setModal({ type: 'categories' })}>
-                {t('product.manageCategories')}
-              </Button>
-              <Button icon="plus" onClick={() => setModal({ type: 'form', product: {} })}>
-                {t('product.add')}
-              </Button>
-            </>
-          )
+          <>
+            <PrintButton
+              title={t('product.title')}
+              subtitle={[
+                kind && t(kind === 'material' ? 'product.materials' : 'product.forSale'),
+                categories.find((c) => String(c.id) === String(category))?.name,
+                lowStock && t('product.lowStockOnly'),
+                debouncedSearch && `"${debouncedSearch}"`,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+              load={() => fetchAll('/products/', listParams)}
+              columns={[
+                { label: t('product.name'), value: (p) => p.name },
+                { label: t('product.category'), value: (p) => p.category_name || '' },
+                { label: t('product.kind'), value: (p) => (p.is_material ? t('product.material') : t('product.forSale')) },
+                ...(showCost
+                  ? [{ label: t('product.costPrice'), value: (p) => formatMoney(p.cost_price), align: 'right' }]
+                  : []),
+                { label: t('product.sellingPrice'), value: (p) => (p.is_material ? '' : formatMoney(p.selling_price)), align: 'right' },
+                {
+                  label: t('product.stock'),
+                  value: (p) => `${formatQuantity(p.stock_quantity)} ${t(`units.${p.unit}`)}`,
+                  align: 'right',
+                },
+              ]}
+              footer={(rows) => [
+                [t('print.lowStock'), rows.filter((p) => p.is_low_stock).length],
+                ...(showCost
+                  ? [[
+                      t('print.stockValue'),
+                      formatMoney(rows.reduce((sum, p) => sum + Math.max(Number(p.stock_quantity), 0) * Number(p.cost_price), 0)),
+                    ]]
+                  : []),
+              ]}
+            />
+            {canEdit && (
+              <>
+                <Button variant="secondary" icon="tag" onClick={() => setModal({ type: 'categories' })}>
+                  {t('product.manageCategories')}
+                </Button>
+                <Button icon="plus" onClick={() => setModal({ type: 'form', product: {} })}>
+                  {t('product.add')}
+                </Button>
+              </>
+            )}
+          </>
         }
       />
 
@@ -537,7 +573,7 @@ export default function ProductsPage() {
           <Loading />
         ) : products.items.length === 0 ? (
           <EmptyState icon="box" title={filtering ? t('product.noMatch') : t('product.empty')}>
-            {isOwner && !filtering && (
+            {canEdit && !filtering && (
               <Button icon="plus" onClick={() => setModal({ type: 'form', product: {} })}>
                 {t('product.add')}
               </Button>
@@ -562,7 +598,7 @@ export default function ProductsPage() {
                   <p className="tabular font-semibold text-ink">
                     {formatMoney(p.is_material ? p.cost_price : p.selling_price)}
                   </p>
-                  {isOwner && (
+                  {showCost && (
                     <p className="tabular text-xs text-muted">
                       {t('product.costPrice')}: {formatMoney(p.cost_price)}
                     </p>
@@ -584,15 +620,15 @@ export default function ProductsPage() {
                   )}
                 </div>
                 <div className="flex items-center gap-0.5">
-                  {isOwner && (
+                  {canEdit && (
                     <IconButton icon="stack" label={t('product.updateStock')} onClick={() => setModal({ type: 'stock', product: p })} />
                   )}
                   <IconButton icon="history" label={t('product.history')} onClick={() => setModal({ type: 'history', product: p })} />
-                  {isOwner && (
-                    <>
-                      <IconButton icon="edit" label={t('common.edit')} onClick={() => setModal({ type: 'form', product: p })} />
-                      <IconButton icon="trash" label={t('common.delete')} danger onClick={() => remove(p)} />
-                    </>
+                  {canEdit && (
+                    <IconButton icon="edit" label={t('common.edit')} onClick={() => setModal({ type: 'form', product: p })} />
+                  )}
+                  {canEdit && can('manage') && (
+                    <IconButton icon="trash" label={t('common.delete')} danger onClick={() => remove(p)} />
                   )}
                 </div>
               </li>

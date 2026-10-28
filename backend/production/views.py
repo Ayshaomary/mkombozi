@@ -6,7 +6,8 @@ from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from accounts.permissions import HasBusiness, IsOwnerOrCreateOnly, IsOwnerOrReadOnly
+from accounts.models import Permission
+from accounts.permissions import HasBusiness, can
 from accounts.scoping import BusinessScopedMixin
 from inventory.models import Product
 from reports.dates import date_range_from_params
@@ -22,11 +23,20 @@ USAGE_DAYS = 60
 
 
 class RecipeViewSet(BusinessScopedMixin, viewsets.ModelViewSet):
-    """What goes into each product the business makes. Only the owner manages recipes."""
+    """What goes into each product the business makes."""
 
     queryset = Recipe.objects.select_related('product').prefetch_related('items__material')
     serializer_class = RecipeSerializer
-    permission_classes = [HasBusiness, IsOwnerOrReadOnly, HasActiveSubscription]
+    permission_classes = [
+        HasBusiness,
+        can(
+            read=Permission.PRODUCTION,
+            create=Permission.PRODUCTION,
+            change=Permission.PRODUCTION,
+            delete=Permission.PRODUCTION,
+        ),
+        HasActiveSubscription,
+    ]
     pagination_class = None
 
 
@@ -38,14 +48,18 @@ class ProductionRunViewSet(
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
-    """Batches made. Staff can record them; only the owner can cancel one (stock goes back).
+    """Batches made. Cancelling one (stock goes back) also needs the "edit and delete" permission.
 
     Filters: ?period=today|week|month|year  or  ?start=2026-10-01&end=2026-10-31,  ?product=12
     """
 
     queryset = ProductionRun.objects.select_related('product', 'created_by').prefetch_related('items')
     serializer_class = ProductionRunSerializer
-    permission_classes = [HasBusiness, IsOwnerOrCreateOnly, HasActiveSubscription]
+    permission_classes = [
+        HasBusiness,
+        can(read=Permission.PRODUCTION, create=Permission.PRODUCTION, delete=(Permission.PRODUCTION, Permission.MANAGE)),
+        HasActiveSubscription,
+    ]
 
     def get_queryset(self):
         queryset = super().get_queryset()

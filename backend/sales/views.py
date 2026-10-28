@@ -3,7 +3,8 @@ from django.db.models import Count, Q, Sum
 from rest_framework import mixins, status, viewsets
 from rest_framework.response import Response
 
-from accounts.permissions import HasBusiness, IsOwnerOrCreateOnly
+from accounts.models import Permission
+from accounts.permissions import HasBusiness, can
 from accounts.scoping import BusinessScopedMixin, find_by_client_id
 from reports.dates import date_range_from_params
 from subscriptions.permissions import HasActiveSubscription
@@ -28,7 +29,9 @@ class SaleViewSet(
     """
 
     queryset = Sale.objects.select_related('created_by')
-    permission_classes = [HasBusiness, IsOwnerOrCreateOnly, HasActiveSubscription]
+    permission_classes = [
+        HasBusiness, can(create=Permission.SALES, delete=Permission.MANAGE), HasActiveSubscription,
+    ]
 
     def get_serializer_class(self):
         return SaleListSerializer if self.action == 'list' else SaleSerializer

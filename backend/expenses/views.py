@@ -4,7 +4,8 @@ from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.response import Response
 
-from accounts.permissions import HasBusiness, IsOwner, IsOwnerOrCreateOnly
+from accounts.models import Permission
+from accounts.permissions import HasBusiness, can
 from accounts.scoping import BusinessScopedMixin, find_by_client_id
 from reports.dates import date_range_from_params
 from subscriptions.permissions import HasActiveSubscription
@@ -19,7 +20,11 @@ class ExpenseViewSet(BusinessScopedMixin, viewsets.ModelViewSet):
 
     queryset = Expense.objects.select_related('created_by')
     serializer_class = ExpenseSerializer
-    permission_classes = [HasBusiness, IsOwnerOrCreateOnly, HasActiveSubscription]
+    permission_classes = [
+        HasBusiness,
+        can(read=Permission.EXPENSES, create=Permission.EXPENSES, change=Permission.MANAGE, delete=Permission.MANAGE),
+        HasActiveSubscription,
+    ]
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -54,11 +59,21 @@ class ExpenseViewSet(BusinessScopedMixin, viewsets.ModelViewSet):
 
 
 class RecurringExpenseViewSet(BusinessScopedMixin, viewsets.ModelViewSet):
-    """Expenses that repeat (rent, salaries...). Only the owner manages them."""
+    """Expenses that repeat (rent, salaries...). Managed by the owner, or staff allowed to record
+    expenses AND edit records."""
 
     queryset = RecurringExpense.objects.all()
     serializer_class = RecurringExpenseSerializer
-    permission_classes = [HasBusiness, IsOwner, HasActiveSubscription]
+    permission_classes = [
+        HasBusiness,
+        can(
+            read=(Permission.EXPENSES, Permission.MANAGE),
+            create=(Permission.EXPENSES, Permission.MANAGE),
+            change=(Permission.EXPENSES, Permission.MANAGE),
+            delete=(Permission.EXPENSES, Permission.MANAGE),
+        ),
+        HasActiveSubscription,
+    ]
     pagination_class = None
 
     def perform_create(self, serializer):

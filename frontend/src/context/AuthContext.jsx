@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { api, getTokens, setTokens } from '../lib/api'
 import { clearOfflineData } from '../lib/outbox'
+import { userCan } from '../lib/permissions'
 
 const AuthContext = createContext(null)
 
@@ -91,6 +92,8 @@ export function AuthProvider({ children }) {
     subscription,
     loading,
     isOwner: user?.role === 'owner',
+    // can('products'): what the owner allowed this user (see lib/permissions.js)
+    can: (permission) => userCan(user, permission),
     // Admins of the whole platform ("Staff status" in the Django admin) see the admin dashboard
     isAdmin: Boolean(user?.is_staff),
     login,

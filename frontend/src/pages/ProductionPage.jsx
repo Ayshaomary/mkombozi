@@ -1,5 +1,6 @@
 import { useId, useState } from 'react'
 import Icon from '../components/Icon'
+import PrintButton from '../components/PrintButton'
 import {
   Badge,
   Button,
@@ -20,7 +21,7 @@ import { useLanguage } from '../i18n/LanguageContext'
 import { api } from '../lib/api'
 import { UNITS } from '../lib/constants'
 import { formatDateTime, formatMoney, formatQuantity } from '../lib/format'
-import { useApi, usePaginated } from '../lib/useApi'
+import { fetchAll, useApi, usePaginated } from '../lib/useApi'
 
 const round2 = (value) => Math.round(value * 100) / 100
 
@@ -454,7 +455,6 @@ function RecipeFormModal({ recipe, recipes, onClose, onSaved }) {
 
 function RecipesModal({ recipes, onClose, onChanged }) {
   const { t } = useLanguage()
-  const { isOwner } = useAuth()
   const [editing, setEditing] = useState(null)
   const [error, setError] = useState(null)
 
@@ -493,11 +493,9 @@ function RecipesModal({ recipes, onClose, onChanged }) {
           <Button variant="secondary" onClick={onClose}>
             {t('common.close')}
           </Button>
-          {isOwner && (
-            <Button icon="plus" onClick={() => setEditing({})}>
-              {t('production.addRecipe')}
-            </Button>
-          )}
+          <Button icon="plus" onClick={() => setEditing({})}>
+            {t('production.addRecipe')}
+          </Button>
         </>
       }
     >
@@ -527,24 +525,22 @@ function RecipesModal({ recipes, onClose, onChanged }) {
                   {t('production.canMake', { count: formatQuantity(recipe.can_make) })}
                 </p>
               </div>
-              {isOwner && (
-                <div className="flex shrink-0 gap-1">
-                  <button
-                    onClick={() => setEditing(recipe)}
-                    className="rounded-lg p-1.5 text-muted hover:bg-soft hover:text-ink"
-                    aria-label={t('common.edit')}
-                  >
-                    <Icon name="edit" size={16} />
-                  </button>
-                  <button
-                    onClick={() => remove(recipe)}
-                    className="rounded-lg p-1.5 text-muted hover:bg-bad-soft hover:text-bad"
-                    aria-label={t('common.delete')}
-                  >
-                    <Icon name="trash" size={16} />
-                  </button>
-                </div>
-              )}
+              <div className="flex shrink-0 gap-1">
+                <button
+                  onClick={() => setEditing(recipe)}
+                  className="rounded-lg p-1.5 text-muted hover:bg-soft hover:text-ink"
+                  aria-label={t('common.edit')}
+                >
+                  <Icon name="edit" size={16} />
+                </button>
+                <button
+                  onClick={() => remove(recipe)}
+                  className="rounded-lg p-1.5 text-muted hover:bg-bad-soft hover:text-bad"
+                  aria-label={t('common.delete')}
+                >
+                  <Icon name="trash" size={16} />
+                </button>
+              </div>
             </li>
           ))}
         </ul>
@@ -711,7 +707,6 @@ function NewMaterialModal({ onClose, onSaved }) {
 // Raw materials in stock: what's left, what it's worth, what's running low, and what can be made
 function MaterialStockTab({ recipes, onChanged }) {
   const { t } = useLanguage()
-  const { isOwner } = useAuth()
   const stock = useStockItems()
   const [modal, setModal] = useState(null)
   const materials = stock.items.filter((p) => p.is_material)
@@ -763,11 +758,37 @@ function MaterialStockTab({ recipes, onChanged }) {
         title={t('production.materialStock')}
         padded={false}
         action={
-          isOwner && (
+          <div className="flex gap-2">
+            <PrintButton
+              title={t('production.materialStock')}
+              load={async () => ({ rows: materials, total: null })}
+              columns={[
+                { label: t('production.material'), value: (m) => m.name },
+                {
+                  label: t('product.stock'),
+                  value: (m) => `${formatQuantity(m.stock_quantity)} ${t(`units.${m.unit}`)}`,
+                  align: 'right',
+                },
+                { label: t('production.pricePerUnit'), value: (m) => formatMoney(m.cost_price), align: 'right' },
+                {
+                  label: t('print.value'),
+                  value: (m) => formatMoney(Math.max(Number(m.stock_quantity), 0) * Number(m.cost_price)),
+                  align: 'right',
+                },
+                {
+                  label: t('print.status'),
+                  value: (m) => (Number(m.stock_quantity) <= 0 ? t('pos.outOfStock') : m.is_low_stock ? t('product.low') : ''),
+                },
+              ]}
+              footer={() => [
+                [t('production.runningLow'), low.length],
+                [t('production.stockValue'), formatMoney(value)],
+              ]}
+            />
             <Button size="sm" icon="plus" onClick={() => setModal({ type: 'new' })}>
               {t('production.newMaterialTitle')}
             </Button>
-          )
+          </div>
         }
       >
         <ErrorBox error={stock.error} onRetry={stock.reload} />
@@ -804,11 +825,9 @@ function MaterialStockTab({ recipes, onChanged }) {
                       </p>
                       <p className="tabular text-xs text-muted">{formatMoney(Math.max(qty, 0) * Number(m.cost_price))}</p>
                     </div>
-                    {isOwner && (
-                      <Button size="sm" variant="secondary" icon="plus" onClick={() => setModal({ type: 'add', material: m })}>
-                        {t('production.addStock')}
-                      </Button>
-                    )}
+                    <Button size="sm" variant="secondary" icon="plus" onClick={() => setModal({ type: 'add', material: m })}>
+                      {t('production.addStock')}
+                    </Button>
                   </div>
                 </li>
               )
@@ -825,12 +844,36 @@ function MaterialStockTab({ recipes, onChanged }) {
 
 export default function ProductionPage() {
   const { t, lang } = useLanguage()
-  const { isOwner } = useAuth()
+  const { can } = useAuth()
   const [tab, setTab] = useState('batches')
   const [period, setPeriod] = useState('month')
   const [modal, setModal] = useState(null)
   const [error, setError] = useState(null)
   const runs = usePaginated('/production/', { period })
+  const printBatches = (
+    <PrintButton
+      title={t('production.title')}
+      subtitle={t(`period.${period}`)}
+      load={() => fetchAll('/production/', { period })}
+      columns={[
+        { label: t('production.batch'), value: (r) => r.batch_number },
+        { label: t('common.date'), value: (r) => formatDateTime(r.produced_at, lang) },
+        { label: t('production.product'), value: (r) => r.product_name },
+        {
+          label: t('production.quantity'),
+          value: (r) => `${formatQuantity(r.quantity)} ${r.unit ? t(`units.${r.unit}`) : ''}`,
+          align: 'right',
+        },
+        {
+          label: t('production.materialsUsed'),
+          value: (r) => r.items.map((i) => `${formatQuantity(i.quantity)} ${i.material_name}`).join(', '),
+        },
+        { label: t('production.totalCost'), value: (r) => formatMoney(r.total_cost), align: 'right' },
+        { label: t('production.costPerUnit'), value: (r) => formatMoney(r.unit_cost), align: 'right' },
+      ]}
+      footer={(rows, total) => [[t('production.periodCost'), formatMoney(total)]]}
+    />
+  )
   const recipesApi = useApi('/recipes/')
   const recipes = recipesApi.data ?? []
 
@@ -875,7 +918,10 @@ export default function ProductionPage() {
       {tab === 'batches' && (
         <>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
           <PeriodFilter value={period} onChange={setPeriod} includeAll />
+          {printBatches}
+        </div>
           {runs.total !== null && (
             <p className="text-sm">
               <span className="text-muted">{t('production.periodCost')} </span>
@@ -915,7 +961,7 @@ export default function ProductionPage() {
                         {formatMoney(run.unit_cost)} {t('production.each')}
                       </p>
                     </div>
-                    {isOwner && (
+                    {can('manage') && (
                       <button
                         onClick={() => cancel(run)}
                         className="rounded-lg p-2 text-muted hover:bg-bad-soft hover:text-bad"

@@ -33,6 +33,20 @@ export function useApi(path, params) {
 }
 
 /**
+ * Every row of a list, page by page (for printing): { rows, total }.
+ * Lists that aren't split into pages are returned as they are.
+ */
+export async function fetchAll(path, params) {
+  const rows = []
+  for (let page = 1; ; page += 1) {
+    const data = await api.get(path, { ...params, page_size: 500, page })
+    if (Array.isArray(data)) return { rows: data, total: null }
+    rows.push(...data.results)
+    if (!data.next) return { rows, total: data.total ?? null }
+  }
+}
+
+/**
  * Like useApi, for paginated lists: keeps the loaded pages and adds a loadMore() function.
  *   const { items, count, hasMore, loadMore } = usePaginated('/sales/', { period })
  */

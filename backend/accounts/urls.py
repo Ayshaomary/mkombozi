@@ -15,5 +15,5 @@ urlpatterns = [
     path('auth/password-reset/confirm/', views.PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
     path('business/', views.BusinessView.as_view(), name='business'),
     path('staff/', views.StaffListCreateView.as_view(), name='staff-list'),
-    path('staff/<int:pk>/', views.StaffDeleteView.as_view(), name='staff-delete'),
+    path('staff/<int:pk>/', views.StaffDetailView.as_view(), name='staff-detail'),
 ]

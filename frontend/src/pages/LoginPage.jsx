@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Button, ErrorBox, Input, PhoneInput } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
+import { homePath } from '../lib/permissions'
 import AuthShell from './AuthShell'
 
 export default function LoginPage() {
@@ -20,7 +21,7 @@ export default function LoginPage() {
     setError(null)
     try {
       const user = await login(phone, password)
-      navigate(user.role === 'owner' ? '/' : '/sell')
+      navigate(homePath(user))
     } catch (err) {
       setError(err)
       setSaving(false)

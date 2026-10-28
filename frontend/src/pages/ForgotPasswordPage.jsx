@@ -4,6 +4,7 @@ import Icon from '../components/Icon'
 import { Button, ErrorBox, Input, Modal, PhoneInput } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
+import { homePath } from '../lib/permissions'
 import { api } from '../lib/api'
 import AuthShell from './AuthShell'
 
@@ -53,7 +54,7 @@ export default function ForgotPasswordPage() {
     try {
       await api.post('/auth/password-reset/confirm/', { phone, code, new_password: password })
       const user = await login(phone, password)
-      navigate(user.role === 'owner' ? '/' : '/sell')
+      navigate(homePath(user))
     } catch (err) {
       setError(err)
       setSaving(false)

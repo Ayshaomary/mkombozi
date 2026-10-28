@@ -98,7 +98,8 @@ class ProductionTests(TestCase):
 
     def test_staff_can_record_but_not_cancel(self):
         staff = User.objects.create_user(
-            phone='0712000002', password='siri-kali-123', first_name='Neema', business=self.business, role='staff'
+            phone='0712000002', password='siri-kali-123', first_name='Neema', business=self.business, role='staff',
+            permissions=['sales', 'production'],
         )
         staff_client = client_for(staff)
         response = staff_client.post('/api/production/', {

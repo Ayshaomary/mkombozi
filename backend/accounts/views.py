@@ -22,6 +22,7 @@ from .serializers import (
     PhotoSerializer,
     PasswordResetRequestSerializer,
     RegisterSerializer,
+    StaffAccessSerializer,
     StaffSerializer,
     UserSerializer,
     tokens_for,
@@ -158,8 +159,12 @@ class StaffListCreateView(generics.ListCreateAPIView):
         serializer.save(business=self.request.user.business)
 
 
-class StaffDeleteView(generics.DestroyAPIView):
+class StaffDetailView(generics.UpdateAPIView, generics.DestroyAPIView):
+    """PATCH {"permissions": [...]} to choose what a staff member may do, or DELETE to remove them."""
+
+    serializer_class = StaffAccessSerializer
     permission_classes = [HasBusiness, IsOwner]
+    http_method_names = ['patch', 'delete']
 
     def get_queryset(self):
         # Owners can remove staff, but never themselves

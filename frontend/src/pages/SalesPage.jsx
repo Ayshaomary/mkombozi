@@ -2,17 +2,18 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Icon from '../components/Icon'
 import { Button, Card, EmptyState, ErrorBox, Loading, Modal, PageHeader, PeriodFilter, Select } from '../components/ui'
+import PrintButton from '../components/PrintButton'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { api } from '../lib/api'
 import { PAYMENT_METHODS } from '../lib/constants'
 import { formatDateTime, formatMoney, formatQuantity } from '../lib/format'
-import { useApi, usePaginated } from '../lib/useApi'
+import { fetchAll, useApi, usePaginated } from '../lib/useApi'
 import { useDebounce } from '../lib/useDebounce'
 
 function SaleDetails({ saleId, onClose, onCancelled }) {
   const { t, lang } = useLanguage()
-  const { isOwner } = useAuth()
+  const { can } = useAuth()
   const { data: sale, loading, error } = useApi(`/sales/${saleId}/`)
   const [cancelError, setCancelError] = useState(null)
   const [cancelling, setCancelling] = useState(false)
@@ -35,7 +36,7 @@ function SaleDetails({ saleId, onClose, onCancelled }) {
       onClose={onClose}
       title={sale ? `${t('pos.receipt')} ${sale.receipt_number}` : t('sales.details')}
       footer={
-        isOwner &&
+        can('manage') &&
         sale && (
           <Button variant="danger" icon="trash" loading={cancelling} onClick={cancelSale}>
             {t('sales.cancelSale')}
@@ -87,7 +88,7 @@ function SaleDetails({ saleId, onClose, onCancelled }) {
             <span>{t('common.total')}</span>
             <span className="tabular">{formatMoney(sale.total_amount)}</span>
           </p>
-          {isOwner && (
+          {can('reports') && (
             <p className="flex justify-between text-ink-2">
               <span>{t('sales.profit')}</span>
               <span className={`tabular font-semibold ${Number(sale.profit) < 0 ? 'text-bad' : 'text-good'}`}>
@@ -104,7 +105,7 @@ function SaleDetails({ saleId, onClose, onCancelled }) {
 
 export default function SalesPage() {
   const { t, lang } = useLanguage()
-  const { isOwner } = useAuth()
+  const { can } = useAuth()
   const navigate = useNavigate()
   const [period, setPeriod] = useState('today')
   const [paymentMethod, setPaymentMethod] = useState('')
@@ -112,20 +113,49 @@ export default function SalesPage() {
   const [selected, setSelected] = useState(null)
   const debouncedSearch = useDebounce(search)
 
-  const sales = usePaginated('/sales/', {
+  const listParams = {
     period: period === 'all' ? '' : period,
     payment_method: paymentMethod,
     search: debouncedSearch,
-  })
+  }
+  const sales = usePaginated('/sales/', listParams)
 
   return (
     <>
       <PageHeader
         title={t('sales.title')}
         actions={
-          <Button icon="plus" onClick={() => navigate('/sell')}>
-            {t('nav.newSale')}
-          </Button>
+          <>
+            <PrintButton
+              title={t('sales.title')}
+              subtitle={[t(`period.${period}`), paymentMethod && t(`payment.${paymentMethod}`), debouncedSearch && `"${debouncedSearch}"`]
+                .filter(Boolean)
+                .join(' · ')}
+              load={() => fetchAll('/sales/', listParams)}
+              columns={[
+                { label: t('sales.receiptNo'), value: (s) => s.receipt_number },
+                { label: t('common.date'), value: (s) => formatDateTime(s.sold_at, lang) },
+                { label: t('sales.customer'), value: (s) => s.customer_name || t('sales.walkIn') },
+                { label: t('pos.paymentMethod'), value: (s) => t(`payment.${s.payment_method}`) },
+                { label: t('sales.items'), value: (s) => s.item_count, align: 'right' },
+                { label: t('common.total'), value: (s) => formatMoney(s.total_amount), align: 'right' },
+                ...(can('reports')
+                  ? [{ label: t('sales.profit'), value: (s) => formatMoney(s.profit), align: 'right' }]
+                  : []),
+              ]}
+              footer={(rows, total) => [
+                [t('print.totalSales'), formatMoney(total)],
+                ...(can('reports')
+                  ? [[t('sales.profit'), formatMoney(rows.reduce((sum, s) => sum + Number(s.profit), 0))]]
+                  : []),
+              ]}
+            />
+            {can('sales') && (
+              <Button icon="plus" onClick={() => navigate('/sell')}>
+                {t('nav.newSale')}
+              </Button>
+            )}
+          </>
         }
       />
 
@@ -189,7 +219,7 @@ export default function SalesPage() {
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="tabular text-sm font-semibold text-ink">{formatMoney(sale.total_amount)}</p>
-                    {isOwner && (
+                    {can('reports') && (
                       <p className={`tabular text-xs ${Number(sale.profit) < 0 ? 'text-bad' : 'text-good'}`}>
                         {t('sales.profit')}: {formatMoney(sale.profit)}
                       </p>
