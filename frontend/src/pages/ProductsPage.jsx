@@ -20,9 +20,8 @@ import { api } from '../lib/api'
 import { formatDateTime, formatMoney, formatQuantity } from '../lib/format'
 import { useApi, usePaginated } from '../lib/useApi'
 import { useDebounce } from '../lib/useDebounce'
-import { SHOP_TYPES } from '../lib/constants'
+import { SHOP_TYPES, UNITS } from '../lib/constants'
 
-const UNITS = ['piece', 'kg', 'litre', 'metre', 'box', 'packet', 'dozen', 'bag']
 const EMPTY_PRODUCT = {
   name: '',
   category: '',

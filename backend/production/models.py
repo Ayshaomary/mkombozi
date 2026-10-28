@@ -66,7 +66,10 @@ class ProductionRun(models.Model):
 
 class ProductionRunItem(models.Model):
     run = models.ForeignKey(ProductionRun, on_delete=models.CASCADE, related_name='items')
-    material = models.ForeignKey('inventory.Product', on_delete=models.SET_NULL, null=True, related_name='+')
+    # Counted to put the materials a business uses most at the top of the list
+    material = models.ForeignKey(
+        'inventory.Product', on_delete=models.SET_NULL, null=True, related_name='production_uses'
+    )
     material_name = models.CharField(max_length=150)
     quantity = models.DecimalField(max_digits=12, decimal_places=2)
     # Buying price of the material at the time, so the batch cost stays correct when prices change

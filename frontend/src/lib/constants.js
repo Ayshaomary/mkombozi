@@ -28,6 +28,9 @@ export const SHOP_TYPES = [
   'other',
 ]
 
+// Same as Product.Unit in inventory/models.py
+export const UNITS = ['piece', 'kg', 'litre', 'metre', 'box', 'packet', 'dozen', 'bag']
+
 export const SUBSCRIPTION_PROVIDERS = ['mpesa', 'tigopesa', 'airtelmoney', 'halopesa', 'manual']
 
 // How each mobile-money network's numbers start (same list as NETWORK_PREFIXES in subscriptions/models.py)

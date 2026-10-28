@@ -24,17 +24,56 @@ def next_batch_number(business):
     return f'P{number:05d}'
 
 
+def find_material(business, name):
+    """A product of this business with this name (any capitals), if there is one."""
+    return Product.objects.filter(business=business, name__iexact=name.strip()).first()
+
+
+def create_material(business, name, unit, unit_cost):
+    """A raw material typed by the user that the business didn't have yet."""
+    return Product.objects.create(
+        business=business,
+        name=name.strip(),
+        unit=unit or Product.Unit.PIECE,
+        cost_price=unit_cost or 0,
+        selling_price=0,
+        stock_quantity=0,
+        is_material=True,
+    )
+
+
+def resolve_items(business, items):
+    """Turn each line into {'material': Product, 'quantity', 'new': bool}.
+
+    A line has either a chosen material, or a typed name: an existing product with that name is
+    used, otherwise a new raw material is made with the typed unit and price.
+    """
+    resolved = []
+    created = {}  # the same new name typed on two lines is one material
+    for item in items:
+        key = (item.get('name') or '').strip().lower()
+        material = item.get('material') or created.get(key) or find_material(business, item['name'])
+        new = material is None or key in created
+        if material is None:
+            material = created[key] = create_material(business, item['name'], item.get('unit'), item.get('unit_cost'))
+        resolved.append({'material': material, 'quantity': item['quantity'], 'new': new})
+    return resolved
+
+
 @transaction.atomic
 def record_production(business, user, product, quantity, items, extra_cost=Decimal(0), note='', produced_at=None):
     """Save a batch: take the materials out of stock and put the finished products in.
 
-    `items` is a list of {'material': Product, 'quantity': Decimal}. The finished product's buying
-    price becomes the average of the stock it already had and this batch, so profit on later sales
-    is right. Either everything is saved or nothing is.
+    `items` is a list of {'material': Product, 'quantity': Decimal}, or {'name', 'unit', 'unit_cost',
+    'quantity'} for a material typed by name (see resolve_items). A material the business didn't
+    have yet counts as bought today and used straight away. The finished product's buying price
+    becomes the average of the stock it already had and this batch, so profit on later sales is
+    right. Either everything is saved or nothing is.
     """
     # Lock the business row so two batches saved at the same time get different numbers
     Business.objects.select_for_update().get(pk=business.pk)
 
+    items = resolve_items(business, items)
     if any(item['material'].pk == product.pk for item in items):
         raise ValidationError({'items': 'A product cannot be made from itself.'})
     # If the same material appears twice, check stock for the combined quantity
@@ -43,7 +82,7 @@ def record_production(business, user, product, quantity, items, extra_cost=Decim
         needed[item['material'].pk] += item['quantity']
     for item in items:
         material = item['material']
-        if needed[material.pk] > material.stock_quantity:
+        if not item['new'] and needed[material.pk] > material.stock_quantity:
             raise ValidationError({
                 'items': f'Not enough "{material.name}" in stock. Available: {material.stock_quantity}. '
                 'Record the purchase of the material first.'
@@ -63,6 +102,10 @@ def record_production(business, user, product, quantity, items, extra_cost=Decim
     materials_cost = Decimal(0)
     for item in items:
         material = item['material']
+        if item['new']:
+            change_stock(
+                material, item['quantity'], StockMovement.Type.PURCHASE, user, f'Bought for production {run.batch_number}'
+            )
         subtotal = (material.cost_price * item['quantity']).quantize(CENTS, ROUND_HALF_UP)
         ProductionRunItem.objects.create(
             run=run,

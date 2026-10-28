@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import Icon from '../components/Icon'
 import {
+  Badge,
   Button,
   Card,
   EmptyState,
@@ -15,53 +16,75 @@ import {
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { api } from '../lib/api'
+import { UNITS } from '../lib/constants'
 import { formatDateTime, formatMoney, formatQuantity } from '../lib/format'
 import { useApi, usePaginated } from '../lib/useApi'
 
 const round2 = (value) => Math.round(value * 100) / 100
 
-// All active products: raw materials first, since they are what production usually uses
+// Every active product, the materials used most lately first (see production/views.py, materials)
 function useStockItems() {
-  const products = useApi('/products/', { active: 'true', page_size: 500 })
-  const items = [...(products.data?.results ?? [])].sort(
-    (a, b) => Number(b.is_material) - Number(a.is_material) || a.name.localeCompare(b.name),
-  )
-  return { ...products, items }
+  const products = useApi('/production/materials/')
+  return { ...products, items: products.data ?? [] }
 }
 
-// The list of materials used: [{ material: id, quantity }], shared by production and recipes
+// A material line names a material. If the business has a product with that name it is used,
+// otherwise the server makes a new raw material with the typed unit and price.
+const sameName = (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase()
+const findProduct = (products, name) => (name.trim() ? products.find((p) => sameName(p.name, name)) : undefined)
+const emptyLine = () => ({ name: '', quantity: '', unit: 'kg', unit_cost: '' })
+
+function lineCost(line, products) {
+  const product = findProduct(products, line.name)
+  return Number(product ? product.cost_price : line.unit_cost || 0) * Number(line.quantity || 0)
+}
+
+// The lines as the API expects them
+function toItems(lines, products) {
+  return lines
+    .filter((line) => line.name.trim() && Number(line.quantity) > 0)
+    .map((line) => {
+      const product = findProduct(products, line.name)
+      if (product) return { material: product.id, quantity: line.quantity }
+      return { name: line.name.trim(), new_unit: line.unit, new_unit_cost: line.unit_cost || 0, quantity: line.quantity }
+    })
+}
+
+// The list of materials used, shared by production and recipes: [{ name, quantity, unit, unit_cost }]
 function MaterialLines({ lines, onChange, products, excludeId, showStock, errors }) {
   const { t } = useLanguage()
-  const byId = Object.fromEntries(products.map((p) => [String(p.id), p]))
+  const listId = useId()
+  const choices = products.filter((p) => String(p.id) !== String(excludeId))
   const update = (index, changes) => onChange(lines.map((line, i) => (i === index ? { ...line, ...changes } : line)))
-  const options = [
-    { value: '', label: t('production.chooseMaterial') },
-    ...products
-      .filter((p) => String(p.id) !== String(excludeId))
-      .map((p) => ({
-        value: String(p.id),
-        label: `${p.name}${p.is_material ? '' : ` (${t('production.notMaterial')})`}`,
-      })),
-  ]
 
   return (
     <div className="space-y-2">
+      {/* Suggestions while typing, in the order of the list: most used first */}
+      <datalist id={listId}>
+        {choices.map((p) => (
+          <option key={p.id} value={p.name} />
+        ))}
+      </datalist>
       {lines.map((line, index) => {
-        const material = byId[String(line.material)]
+        const material = findProduct(choices, line.name)
+        const isNew = line.name.trim() && !material
         const short = showStock && material && Number(line.quantity) > Number(material.stock_quantity)
         return (
           <div key={index} className="rounded-lg border border-line p-2">
             <div className="flex items-start gap-2">
-              <Select
+              <Input
                 className="min-w-0 flex-1"
                 aria-label={t('production.material')}
-                value={String(line.material)}
-                onChange={(e) => update(index, { material: e.target.value })}
-                options={options}
+                placeholder={t('production.typeMaterial')}
+                list={listId}
+                autoComplete="off"
+                value={line.name}
+                onChange={(e) => update(index, { name: e.target.value })}
               />
               <Input
                 className="w-24"
                 aria-label={t('production.amount')}
+                placeholder={t('production.amount')}
                 type="number"
                 min="0"
                 step="any"
@@ -81,22 +104,43 @@ function MaterialLines({ lines, onChange, products, excludeId, showStock, errors
             {material && (
               <p className={`mt-1 text-xs ${short ? 'text-bad' : 'text-muted'}`}>
                 {t(`units.${material.unit}`)} · {formatMoney(material.cost_price)} {t('production.each')}
-                {line.quantity && ` · ${formatMoney(Number(material.cost_price) * Number(line.quantity))}`}
+                {line.quantity && ` · ${formatMoney(lineCost(line, choices))}`}
                 {showStock &&
                   ` · ${t(short ? 'production.notEnough' : 'production.inStock', { qty: formatQuantity(material.stock_quantity) })}`}
               </p>
+            )}
+            {isNew && (
+              <div className="mt-2 rounded-md bg-soft p-2">
+                <p className="mb-2 flex flex-wrap items-center gap-2 text-xs text-ink-2">
+                  <Badge tone="good">{t('production.new')}</Badge>
+                  {showStock ? t('production.newMaterialBought') : t('production.newMaterial')}
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Select
+                    aria-label={t('product.unit')}
+                    value={line.unit}
+                    onChange={(e) => update(index, { unit: e.target.value })}
+                    options={UNITS.map((u) => ({ value: u, label: t(`units.${u}`) }))}
+                  />
+                  <Input
+                    aria-label={t('production.pricePerUnit')}
+                    placeholder={t('production.pricePerUnit')}
+                    type="number"
+                    min="0"
+                    step="any"
+                    inputMode="decimal"
+                    required
+                    value={line.unit_cost}
+                    onChange={(e) => update(index, { unit_cost: e.target.value })}
+                  />
+                </div>
+              </div>
             )}
           </div>
         )
       })}
       {errors && <p className="text-sm text-bad">{errors}</p>}
-      <Button
-        type="button"
-        size="sm"
-        variant="secondary"
-        icon="plus"
-        onClick={() => onChange([...lines, { material: '', quantity: '' }])}
-      >
+      <Button type="button" size="sm" variant="secondary" icon="plus" onClick={() => onChange([...lines, emptyLine()])}>
         {t('production.addMaterial')}
       </Button>
     </div>
@@ -117,7 +161,8 @@ function RecordModal({ recipes, onClose, onSaved }) {
   const recipe = recipeFor(form.product)
   const fromRecipe = (rec, quantity) =>
     rec.items.map((item) => ({
-      material: String(item.material),
+      ...emptyLine(),
+      name: item.material_name,
       quantity: String(round2((Number(item.quantity) * Number(quantity || 0)) / Number(rec.output_quantity))),
     }))
 
@@ -125,7 +170,7 @@ function RecordModal({ recipes, onClose, onSaved }) {
     const rec = recipeFor(productId)
     const quantity = rec ? String(Number(rec.output_quantity)) : form.quantity
     setForm({ ...form, product: productId, quantity })
-    setLines(rec ? fromRecipe(rec, quantity) : [{ material: '', quantity: '' }])
+    setLines(rec ? fromRecipe(rec, quantity) : [emptyLine()])
     setLinesEdited(false)
   }
 
@@ -136,13 +181,22 @@ function RecordModal({ recipes, onClose, onSaved }) {
 
   const byId = Object.fromEntries(stock.items.map((p) => [String(p.id), p]))
   const product = byId[form.product]
-  const materialsCost = lines.reduce(
-    (sum, line) => sum + Number(byId[String(line.material)]?.cost_price || 0) * Number(line.quantity || 0),
-    0,
-  )
+  const materials = stock.items.filter((p) => String(p.id) !== form.product)
+  const materialsCost = lines.reduce((sum, line) => sum + lineCost(line, materials), 0)
   const totalCost = materialsCost + Number(form.extra_cost || 0)
   const perUnit = Number(form.quantity) > 0 ? totalCost / Number(form.quantity) : 0
-  const ready = form.product && Number(form.quantity) > 0 && lines.some((l) => l.material && Number(l.quantity) > 0)
+  const ready = form.product && Number(form.quantity) > 0 && toItems(lines, materials).length > 0
+
+  // The materials this business uses most, one tap to add
+  const frequent = materials
+    .filter((p) => p.times_used > 0 && !lines.some((line) => sameName(line.name, p.name)))
+    .slice(0, 6)
+  const addFrequent = (product) => {
+    setLinesEdited(true)
+    const line = { ...emptyLine(), name: product.name }
+    const blank = lines.findIndex((l) => !l.name.trim())
+    setLines(blank >= 0 ? lines.map((l, i) => (i === blank ? line : l)) : [...lines, line])
+  }
 
   const save = async (event) => {
     event.preventDefault()
@@ -154,9 +208,7 @@ function RecordModal({ recipes, onClose, onSaved }) {
         quantity: form.quantity,
         extra_cost: form.extra_cost || 0,
         note: form.note,
-        items: lines
-          .filter((l) => l.material && Number(l.quantity) > 0)
-          .map((l) => ({ material: l.material, quantity: l.quantity })),
+        items: toItems(lines, materials),
       })
       onSaved()
     } catch (err) {
@@ -220,6 +272,23 @@ function RecordModal({ recipes, onClose, onSaved }) {
                 <p className="mb-2 text-xs text-muted">
                   {t('production.fromRecipe', { qty: formatQuantity(recipe.output_quantity) })}
                 </p>
+              )}
+              {frequent.length > 0 && (
+                <div className="mb-2">
+                  <p className="mb-1 text-xs text-muted">{t('production.frequent')}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {frequent.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => addFrequent(p)}
+                        className="inline-flex items-center gap-1 rounded-full border border-line-strong px-3 py-1 text-sm text-ink hover:border-brand hover:bg-brand-soft"
+                      >
+                        <Icon name="plus" size={14} /> {p.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
               <MaterialLines
                 lines={lines}
@@ -288,8 +357,8 @@ function RecipeFormModal({ recipe, recipes, onClose, onSaved }) {
   })
   const [lines, setLines] = useState(() =>
     recipe.items?.length
-      ? recipe.items.map((i) => ({ material: String(i.material), quantity: String(Number(i.quantity)) }))
-      : [{ material: '', quantity: '' }],
+      ? recipe.items.map((i) => ({ ...emptyLine(), name: i.material_name, quantity: String(Number(i.quantity)) }))
+      : [emptyLine()],
   )
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -298,12 +367,8 @@ function RecipeFormModal({ recipe, recipes, onClose, onSaved }) {
     event.preventDefault()
     setSaving(true)
     setError(null)
-    const body = {
-      ...form,
-      items: lines
-        .filter((l) => l.material && Number(l.quantity) > 0)
-        .map((l) => ({ material: l.material, quantity: l.quantity })),
-    }
+    const materials = stock.items.filter((p) => String(p.id) !== form.product)
+    const body = { ...form, items: toItems(lines, materials) }
     try {
       if (isNew) await api.post('/recipes/', body)
       else await api.patch(`/recipes/${recipe.id}/`, body)

@@ -1,15 +1,24 @@
-from django.db.models import Sum
+from datetime import timedelta
+
+from django.db.models import Count, F, Max, Q, Sum
+from django.utils import timezone
 from rest_framework import mixins, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from accounts.permissions import HasBusiness, IsOwnerOrCreateOnly, IsOwnerOrReadOnly
 from accounts.scoping import BusinessScopedMixin
+from inventory.models import Product
 from reports.dates import date_range_from_params
 from subscriptions.permissions import HasActiveSubscription
 
 from .models import ProductionRun, Recipe
 from .serializers import ProductionRunSerializer, RecipeSerializer
 from .services import cancel_production, record_production
+
+
+# How far back "most used" materials are counted
+USAGE_DAYS = 60
 
 
 class RecipeViewSet(BusinessScopedMixin, viewsets.ModelViewSet):
@@ -73,3 +82,29 @@ class ProductionRunViewSet(
 
     def perform_destroy(self, instance):
         cancel_production(instance, self.request.user)
+
+    @action(detail=False)
+    def materials(self, request):
+        """Products to choose from when making something, the ones used most lately first.
+
+        GET /api/production/materials/ -> every active product, with how often it was used in the
+        last 60 days. Then raw materials, then the rest, by name.
+        """
+        since = timezone.now() - timedelta(days=USAGE_DAYS)
+        products = (
+            Product.objects.filter(business=request.user.business, is_active=True)
+            .annotate(
+                times_used=Count('production_uses', filter=Q(production_uses__run__produced_at__gte=since)),
+                last_used=Max('production_uses__run__produced_at'),
+            )
+            # Never-used products have no last_used; put them after the ones used before
+            .order_by('-times_used', F('last_used').desc(nulls_last=True), '-is_material', 'name')
+        )
+        return Response([
+            {
+                'id': p.id, 'name': p.name, 'unit': p.unit, 'cost_price': p.cost_price,
+                'selling_price': p.selling_price, 'stock_quantity': p.stock_quantity,
+                'is_material': p.is_material, 'times_used': p.times_used,
+            }
+            for p in products
+        ])

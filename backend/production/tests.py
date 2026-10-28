@@ -165,3 +165,73 @@ class RecipeTests(TestCase):
         other, _ = make_business(name='Duka B', phone='0712000009')
         theirs = Product.objects.create(business=other, name='Unga B', cost_price=1, selling_price=0)
         self.assertEqual(self.save_recipe(items=[{'material': theirs.pk, 'quantity': '1'}]).status_code, 400)
+
+
+class TypedMaterialTests(TestCase):
+    """Materials typed by name in the production form, and the list ordered by use."""
+
+    def setUp(self):
+        self.business, self.owner = make_business()
+        self.client = client_for(self.owner)
+        self.flour = Product.objects.create(
+            business=self.business, name='Unga', unit='kg', cost_price=2000, selling_price=0,
+            stock_quantity=50, is_material=True,
+        )
+        self.bread = Product.objects.create(business=self.business, name='Mkate', cost_price=0, selling_price=1000)
+
+    def produce(self, items, quantity='10'):
+        return self.client.post(
+            '/api/production/', {'product': self.bread.pk, 'quantity': quantity, 'items': items}, format='json'
+        )
+
+    def test_new_material_is_created_bought_and_used(self):
+        response = self.produce([
+            {'material': self.flour.pk, 'quantity': '2'},
+            {'name': 'Chumvi', 'new_unit': 'kg', 'new_unit_cost': '1500', 'quantity': '0.5'},
+        ])
+        self.assertEqual(response.status_code, 201, response.data)
+        salt = Product.objects.get(name='Chumvi')
+        self.assertTrue(salt.is_material)
+        self.assertEqual((salt.unit, salt.cost_price, salt.stock_quantity), ('kg', 1500, 0))
+        types = list(salt.movements.order_by('id').values_list('movement_type', flat=True))
+        self.assertEqual(types, ['purchase', 'used_in_production'])
+        # 2 x 2,000 + 0.5 x 1,500 = 4,750
+        self.assertEqual(Decimal(response.data['materials_cost']), 4750)
+
+    def test_typed_name_of_existing_material_uses_it(self):
+        response = self.produce([{'name': '  unga ', 'quantity': '3'}])
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(Product.objects.filter(name__iexact='unga').count(), 1)
+        self.flour.refresh_from_db()
+        self.assertEqual(self.flour.stock_quantity, 47)
+
+    def test_same_new_name_on_two_lines_is_one_material(self):
+        response = self.produce([
+            {'name': 'Hamira', 'new_unit_cost': '500', 'quantity': '1'},
+            {'name': 'hamira', 'quantity': '1'},
+        ])
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(Product.objects.filter(name__iexact='hamira').count(), 1)
+
+    def test_line_needs_a_material_or_a_name(self):
+        self.assertEqual(self.produce([{'quantity': '1'}]).status_code, 400)
+
+    def test_materials_list_puts_the_most_used_first(self):
+        sugar = Product.objects.create(
+            business=self.business, name='Sukari', cost_price=3000, selling_price=0, stock_quantity=50, is_material=True
+        )
+        for _ in range(3):
+            self.produce([{'material': sugar.pk, 'quantity': '1'}])
+        self.produce([{'material': self.flour.pk, 'quantity': '1'}])
+        data = self.client.get('/api/production/materials/').data
+        self.assertEqual([p['name'] for p in data][:3], ['Sukari', 'Unga', 'Mkate'])
+        self.assertEqual(data[0]['times_used'], 3)
+
+    def test_recipe_can_use_a_typed_material(self):
+        response = self.client.post('/api/recipes/', {
+            'product': self.bread.pk, 'output_quantity': '20',
+            'items': [{'name': 'Mafuta', 'new_unit': 'litre', 'new_unit_cost': '4000', 'quantity': '1'}],
+        }, format='json')
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['items'][0]['material_name'], 'Mafuta')
+        self.assertTrue(Product.objects.get(name='Mafuta').is_material)

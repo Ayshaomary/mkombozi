@@ -6,12 +6,33 @@ from accounts.scoping import BusinessScopedPrimaryKeyRelatedField
 from inventory.models import Product
 
 from .models import ProductionRun, ProductionRunItem, Recipe, RecipeItem
+from .services import create_material, find_material
 
 POSITIVE = {'max_digits': 12, 'decimal_places': 2, 'min_value': Decimal('0.01')}
 
 
-class RecipeItemSerializer(serializers.ModelSerializer):
-    material = BusinessScopedPrimaryKeyRelatedField(queryset=Product.objects.all())
+class TypedMaterialMixin(serializers.Serializer):
+    """A material line can name a material instead of choosing one: an existing product with that
+    name is used, or a new raw material is made with the typed unit and price."""
+
+    name = serializers.CharField(max_length=150, required=False, write_only=True)
+    new_unit = serializers.ChoiceField(choices=Product.Unit.choices, required=False, write_only=True)
+    new_unit_cost = serializers.DecimalField(
+        max_digits=12, decimal_places=2, min_value=Decimal('0'), required=False, write_only=True,
+        help_text='Buying price per unit, for a material the business did not have yet.',
+    )
+
+    def validate(self, attrs):
+        if not attrs.get('material') and not (attrs.get('name') or '').strip():
+            raise serializers.ValidationError('Choose a material or type its name.')
+        # The names production.services uses
+        attrs['unit'] = attrs.pop('new_unit', None)
+        attrs['unit_cost'] = attrs.pop('new_unit_cost', None)
+        return attrs
+
+
+class RecipeItemSerializer(TypedMaterialMixin, serializers.ModelSerializer):
+    material = BusinessScopedPrimaryKeyRelatedField(queryset=Product.objects.all(), required=False, allow_null=True)
     material_name = serializers.CharField(source='material.name', read_only=True)
     unit = serializers.CharField(source='material.unit', read_only=True)
     cost_price = serializers.DecimalField(source='material.cost_price', max_digits=12, decimal_places=2, read_only=True)
@@ -22,7 +43,10 @@ class RecipeItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RecipeItem
-        fields = ['id', 'material', 'material_name', 'unit', 'cost_price', 'stock_quantity', 'quantity']
+        fields = [
+            'id', 'material', 'material_name', 'unit', 'cost_price', 'stock_quantity', 'quantity',
+            'name', 'new_unit', 'new_unit_cost',
+        ]
 
 
 class RecipeSerializer(serializers.ModelSerializer):
@@ -57,10 +81,15 @@ class RecipeSerializer(serializers.ModelSerializer):
         if items is not None:
             if not items:
                 raise serializers.ValidationError({'items': 'Add at least one material.'})
-            materials = [item['material'].pk for item in items]
-            if product and product.pk in materials:
+            business = self.context['request'].user.business
+            for item in items:
+                # A typed name that the business already has is that product
+                if not item.get('material'):
+                    item['material'] = find_material(business, item['name'])
+            if product and any(item['material'] == product for item in items):
                 raise serializers.ValidationError({'items': 'A product cannot be made from itself.'})
-            if len(materials) != len(set(materials)):
+            keys = [item['material'].pk if item['material'] else item['name'].strip().lower() for item in items]
+            if len(keys) != len(set(keys)):
                 raise serializers.ValidationError({'items': 'Each material can be listed only once.'})
         if product and 'product' in attrs:
             existing = Recipe.objects.filter(product=product)
@@ -70,28 +99,45 @@ class RecipeSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'product': 'This product already has a recipe. Edit that one.'})
         return attrs
 
+    def save_items(self, recipe, items):
+        recipe.items.all().delete()
+        RecipeItem.objects.bulk_create(
+            RecipeItem(
+                recipe=recipe,
+                # A material typed by name that the business didn't have yet becomes a new raw material
+                material=item['material']
+                or create_material(recipe.business, item['name'], item['unit'], item['unit_cost']),
+                quantity=item['quantity'],
+            )
+            for item in items
+        )
+
     def create(self, validated_data):
         items = validated_data.pop('items')
         recipe = Recipe.objects.create(**validated_data)
-        RecipeItem.objects.bulk_create(RecipeItem(recipe=recipe, **item) for item in items)
+        self.save_items(recipe, items)
         return recipe
 
     def update(self, instance, validated_data):
         items = validated_data.pop('items', None)
         instance = super().update(instance, validated_data)
         if items is not None:
-            instance.items.all().delete()
-            RecipeItem.objects.bulk_create(RecipeItem(recipe=instance, **item) for item in items)
+            self.save_items(instance, items)
         return instance
 
 
-class ProductionRunItemSerializer(serializers.ModelSerializer):
-    material = BusinessScopedPrimaryKeyRelatedField(queryset=Product.objects.filter(is_active=True))
+class ProductionRunItemSerializer(TypedMaterialMixin, serializers.ModelSerializer):
+    material = BusinessScopedPrimaryKeyRelatedField(
+        queryset=Product.objects.filter(is_active=True), required=False, allow_null=True
+    )
     quantity = serializers.DecimalField(**POSITIVE)
 
     class Meta:
         model = ProductionRunItem
-        fields = ['id', 'material', 'material_name', 'quantity', 'unit_cost', 'subtotal']
+        fields = [
+            'id', 'material', 'material_name', 'quantity', 'unit_cost', 'subtotal',
+            'name', 'new_unit', 'new_unit_cost',
+        ]
         read_only_fields = ['material_name', 'unit_cost', 'subtotal']
 
 
