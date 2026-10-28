@@ -1,4 +1,8 @@
-# MUKOMBOZI
+# SAVIOR
+
+> The app was first called MUKOMBOZI (Kiswahili for "savior"). Internal names still use `mukombozi`:
+> the Render services and web addresses, the database, the project folder and keys saved in browsers.
+> Changing them would break the live site and log everyone out, and users never see them.
 
 A web app for small businesses in Tanzania: record sales, track expenses, manage products and stock, see profit and reports, and pay a monthly subscription.
 
@@ -182,4 +186,4 @@ After that, every `git push` to `main` deploys again automatically.
 2. **Customer credit (madeni).** Track who owes money for sales paid on credit.
 3. **SMS / WhatsApp receipts** to customers.
 4. **Plan limits**, e.g. a maximum number of products or staff per plan.
-5. **Daily database backups** and a custom domain (e.g. `mukombozi.co.tz`).
+5. **Daily database backups** and a custom domain (e.g. `savior.co.tz`).

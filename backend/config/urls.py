@@ -1,4 +1,4 @@
-"""MUKOMBOZI URL configuration. All API endpoints start with /api/."""
+"""SAVIOR URL configuration. All API endpoints start with /api/."""
 
 from django.contrib import admin
 from django.urls import include, path
@@ -23,8 +23,8 @@ router.register('notifications', NotificationViewSet, basename='notification')
 router.register('recipes', RecipeViewSet, basename='recipe')
 router.register('production', ProductionRunViewSet, basename='production-run')
 
-admin.site.site_header = 'MUKOMBOZI Admin'
-admin.site.site_title = 'MUKOMBOZI'
+admin.site.site_header = 'SAVIOR Admin'
+admin.site.site_title = 'SAVIOR'
 
 urlpatterns = [
     path('', home, name='home'),

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Creates the PostgreSQL user and database for MUKOMBOZI, using values from backend/.env
+# Creates the PostgreSQL user and database for SAVIOR, using values from backend/.env
 # Run once:  bash backend/scripts/setup_db.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."

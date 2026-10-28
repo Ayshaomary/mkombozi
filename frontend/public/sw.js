@@ -1,4 +1,4 @@
-// MUKOMBOZI service worker: lets the installed app open and show data without internet.
+// SAVIOR service worker: lets the installed app open and show data without internet.
 //
 // - The app itself (index.html and the files in /assets/) is kept on the phone.
 // - Every successful GET from the API is kept too, and shown when the phone is offline, marked with

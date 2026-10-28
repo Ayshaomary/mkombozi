@@ -54,7 +54,7 @@ def send_sms(phone, message):
         headers={
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-            'User-Agent': 'MUKOMBOZI/1.0',
+            'User-Agent': 'SAVIOR/1.0',
             'Authorization': f'Basic {credentials}',
         },
         method='POST',

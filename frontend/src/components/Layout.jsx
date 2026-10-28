@@ -27,7 +27,7 @@ export function Logo({ className = '' }) {
   return (
     <span className={`inline-flex items-center gap-2 font-bold tracking-tight text-ink ${className}`}>
       <img src="/favicon.svg" alt="" className="size-8" />
-      MUKOMBOZI
+      SAVIOR
     </span>
   )
 }

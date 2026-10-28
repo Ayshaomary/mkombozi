@@ -17,7 +17,7 @@ RESEND_AFTER = timedelta(seconds=60)
 MAX_CODES_PER_HOUR = 5
 
 MESSAGE = (
-    'MUKOMBOZI: {code} ni namba yako ya kubadilisha nenosiri (password reset code). '
+    'SAVIOR: {code} ni namba yako ya kubadilisha nenosiri (password reset code). '
     'Inaisha baada ya dakika 10. Usimpe mtu yeyote.'
 )
 

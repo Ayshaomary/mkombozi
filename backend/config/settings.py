@@ -78,7 +78,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
-    # MUKOMBOZI apps
+    # SAVIOR apps
     'accounts',
     'inventory',
     'sales',
@@ -219,7 +219,7 @@ SONICPESA_BUYER_EMAIL = os.environ.get('SONICPESA_BUYER_EMAIL', 'payments@mukomb
 # Without keys, SMS are printed in the terminal while DEBUG is on, and refused when it is off.
 BEEM_API_KEY = os.environ.get('BEEM_API_KEY', '')
 BEEM_SECRET_KEY = os.environ.get('BEEM_SECRET_KEY', '')
-# The name the SMS comes from. 'INFO' works at first; your own name (e.g. MUKOMBOZI) needs Beem's approval.
+# The name the SMS comes from. 'INFO' works at first; your own name (e.g. SAVIOR) needs Beem's approval.
 BEEM_SENDER_ID = os.environ.get('BEEM_SENDER_ID', 'INFO')
 BEEM_SMS_URL = os.environ.get('BEEM_SMS_URL', 'https://apisms.beem.africa/v1/send')
 

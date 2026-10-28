@@ -109,7 +109,7 @@ class SubscriptionPayment(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.reference:
-            self.reference = 'MKB-' + uuid.uuid4().hex[:10].upper()
+            self.reference = 'SVR-' + uuid.uuid4().hex[:10].upper()
         super().save(*args, **kwargs)
 
     @transaction.atomic

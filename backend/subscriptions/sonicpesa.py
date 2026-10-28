@@ -44,7 +44,7 @@ def _post(path, payload):
         headers={
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-            'User-Agent': 'MUKOMBOZI/1.0',
+            'User-Agent': 'SAVIOR/1.0',
             'X-API-KEY': settings.SONICPESA_API_KEY,
         },
         method='POST',

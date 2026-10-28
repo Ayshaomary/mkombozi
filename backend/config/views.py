@@ -13,7 +13,7 @@ def home(request):
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>MUKOMBOZI API</title>
+  <title>SAVIOR API</title>
   <style>
     body {{ font-family: system-ui, sans-serif; background: #f6f6f3; color: #0b0b0b; margin: 0;
            display: flex; min-height: 100vh; align-items: center; justify-content: center; padding: 16px; }}
@@ -27,10 +27,10 @@ def home(request):
 </head>
 <body>
   <main>
-    <h1>MUKOMBOZI API iko hai &#9989;</h1>
+    <h1>SAVIOR API iko hai &#9989;</h1>
     <p>Hii ni sehemu ya nyuma (backend) inayohifadhi taarifa. Programu yenyewe iko kwenye kiungo hapa chini.</p>
     <p>This is the backend that stores the data. The app itself is at the link below.</p>
-    <a class="primary" href="{app_url}">Fungua MUKOMBOZI / Open the app</a>
+    <a class="primary" href="{app_url}">Fungua SAVIOR / Open the app</a>
     <a href="/admin/">Admin panel</a>
     <a href="/api/">API endpoints</a>
   </main>
