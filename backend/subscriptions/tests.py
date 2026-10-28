@@ -33,6 +33,7 @@ class SubscriptionTests(TestCase):
     def test_default_plans_exist(self):
         response = self.client.get('/api/subscription/plans/')
         self.assertEqual([p['code'] for p in response.data], ['monthly', 'quarterly', 'yearly'])
+        self.assertEqual([p['price'] for p in response.data], ['50000.00', '141000.00', '540000.00'])
 
     def test_expired_can_view_but_not_add(self):
         self.expire()
@@ -50,7 +51,7 @@ class SubscriptionTests(TestCase):
         )
         self.assertEqual(response.status_code, 201, response.data)
         self.assertEqual(response.data['status'], 'pending')
-        self.assertEqual(response.data['amount'], '10000.00')
+        self.assertEqual(response.data['amount'], '50000.00')
 
         SubscriptionPayment.objects.get(pk=response.data['id']).mark_completed()
         subscription = Subscription.objects.get(business=self.business)
@@ -99,7 +100,7 @@ class SonicPesaTests(TestCase):
         self.assertEqual(response.data['status'], 'pending')
         create.assert_called_once()
         self.assertEqual(create.call_args.kwargs['phone'], '255742000001')
-        self.assertEqual(create.call_args.kwargs['amount'], 10000)
+        self.assertEqual(create.call_args.kwargs['amount'], 50000)
         self.assertEqual(SubscriptionPayment.objects.get().gateway_order_id, 'sp_123')
 
     def test_rejected_push_marks_payment_failed(self):
@@ -142,7 +143,7 @@ class SonicPesaTests(TestCase):
 
     def test_status_check_completes_payment(self):
         payment_id = self.start_payment()[0].data['id']
-        status = {'payment_status': 'SUCCESS', 'amount': 10000, 'transid': 'T1', 'channel': 'TIGOPESATZ'}
+        status = {'payment_status': 'SUCCESS', 'amount': 50000, 'transid': 'T1', 'channel': 'TIGOPESATZ'}
         with mock.patch.object(sonicpesa, 'order_status', return_value=status):
             response = self.client.get(f'/api/subscription/payments/{payment_id}/')
         self.assertEqual(response.data['status'], 'completed')
@@ -161,7 +162,7 @@ class SonicPesaTests(TestCase):
 
     def test_webhook_completes_payment_once(self):
         self.start_payment()
-        payload = {'event': 'payment.success', 'order_id': 'sp_123', 'status': 'SUCCESS', 'amount': 10000}
+        payload = {'event': 'payment.success', 'order_id': 'sp_123', 'status': 'SUCCESS', 'amount': 50000}
         self.assertEqual(self.webhook(payload).status_code, 200)
         self.assertEqual(self.webhook(payload).status_code, 200)
         self.assertEqual(SubscriptionPayment.objects.get().status, 'completed')
@@ -170,7 +171,7 @@ class SonicPesaTests(TestCase):
 
     def test_webhook_with_wrong_signature_is_refused(self):
         self.start_payment()
-        payload = {'order_id': 'sp_123', 'status': 'SUCCESS', 'amount': 10000}
+        payload = {'order_id': 'sp_123', 'status': 'SUCCESS', 'amount': 50000}
         self.assertEqual(self.webhook(payload, secret='wrong').status_code, 403)
         self.assertEqual(SubscriptionPayment.objects.get().status, 'pending')
 

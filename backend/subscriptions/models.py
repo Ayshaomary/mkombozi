@@ -9,7 +9,7 @@ TRIAL_DAYS = 14
 
 
 class Plan(models.Model):
-    """A subscription option, e.g. 1 month for TZS 10,000."""
+    """A subscription option, e.g. 1 month for TZS 50,000."""
 
     code = models.SlugField(unique=True)
     name = models.CharField(max_length=100)
