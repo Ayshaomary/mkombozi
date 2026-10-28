@@ -81,7 +81,7 @@ class PasswordResetRequestView(APIView):
         serializer = PasswordResetRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
-            password_reset.request_code(serializer.validated_data['phone'])
+            simulated_code = password_reset.request_code(serializer.validated_data['phone'])
         except SMSError:
             logger.exception('Password reset SMS failed')
             return Response(
@@ -89,7 +89,11 @@ class PasswordResetRequestView(APIView):
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         # The same answer whether or not the number has an account
-        return Response({'detail': 'If this number has an account, a code has been sent by SMS.'})
+        answer = {'detail': 'If this number has an account, a code has been sent by SMS.'}
+        if simulated_code:
+            # Only on a developer's computer without SMS keys (see notifications.sms.is_simulated)
+            answer['simulated_code'] = simulated_code
+        return Response(answer)
 
 
 class PasswordResetConfirmView(APIView):

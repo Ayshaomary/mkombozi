@@ -24,6 +24,15 @@ def is_enabled():
     return bool(settings.BEEM_API_KEY and settings.BEEM_SECRET_KEY)
 
 
+def is_simulated():
+    """True on a developer's computer without SMS keys: messages are shown instead of sent.
+
+    Never true on the live site (DEBUG is off there), because showing a reset code in the browser
+    would let anyone take over any account.
+    """
+    return settings.DEBUG and not is_enabled()
+
+
 def send_sms(phone, message):
     """Send one SMS. `phone` may be '+255712345678' or '255712345678'."""
     if not is_enabled():

@@ -68,6 +68,10 @@ export const translations = {
       resend: 'Send a new code',
       otherNumber: 'Use another number',
       backToLogin: 'Back to log in',
+      simulationTitle: 'SMS simulation',
+      simulationText: 'This SMS would be sent to {phone}. Your code is:',
+      simulationNote: 'Test mode on this computer only: no real SMS was sent. The live site sends a real SMS.',
+      useCode: 'Use this code',
     },
     shopTypes: {
       supermarket: 'Supermarket / general shop',
@@ -517,6 +521,10 @@ export const translations = {
       resend: 'Tuma namba mpya',
       otherNumber: 'Tumia namba nyingine',
       backToLogin: 'Rudi kuingia',
+      simulationTitle: 'Mfano wa SMS (simulation)',
+      simulationText: 'SMS hii ingetumwa kwa {phone}. Namba yako ya siri ni:',
+      simulationNote: 'Hali ya majaribio kwenye kompyuta hii tu: hakuna SMS halisi iliyotumwa. Tovuti ya mtandaoni inatuma SMS halisi.',
+      useCode: 'Tumia namba hii',
     },
     shopTypes: {
       supermarket: 'Supamaketi / duka la jumla',

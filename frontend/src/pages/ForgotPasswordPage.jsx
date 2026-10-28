@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Button, ErrorBox, Input, PhoneInput } from '../components/ui'
+import Icon from '../components/Icon'
+import { Button, ErrorBox, Input, Modal, PhoneInput } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { api } from '../lib/api'
@@ -20,6 +21,8 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
   const [secondsLeft, setSecondsLeft] = useState(0)
+  // On a developer's computer without SMS, the server sends the code back to show here
+  const [simulatedCode, setSimulatedCode] = useState(null)
 
   useEffect(() => {
     if (secondsLeft <= 0) return
@@ -32,7 +35,8 @@ export default function ForgotPasswordPage() {
     setSaving(true)
     setError(null)
     try {
-      await api.post('/auth/password-reset/', { phone })
+      const data = await api.post('/auth/password-reset/', { phone })
+      if (data?.simulated_code) setSimulatedCode(data.simulated_code)
       setStep('code')
       setSecondsLeft(RESEND_AFTER_SECONDS)
     } catch (err) {
@@ -124,6 +128,37 @@ export default function ForgotPasswordPage() {
             </button>
           </div>
         </form>
+      )}
+      {simulatedCode && (
+        <Modal
+          open
+          onClose={() => setSimulatedCode(null)}
+          title={t('auth.simulationTitle')}
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setSimulatedCode(null)}>
+                {t('common.close')}
+              </Button>
+              <Button
+                onClick={() => {
+                  setCode(simulatedCode)
+                  setSimulatedCode(null)
+                }}
+              >
+                {t('auth.useCode')}
+              </Button>
+            </>
+          }
+        >
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div className="rounded-full bg-warn-soft p-3 text-warn-ink">
+              <Icon name="bell" size={28} />
+            </div>
+            <p className="text-sm text-ink-2">{t('auth.simulationText', { phone })}</p>
+            <p className="tabular text-4xl font-bold tracking-[0.3em] text-ink">{simulatedCode}</p>
+            <p className="text-xs text-muted">{t('auth.simulationNote')}</p>
+          </div>
+        </Modal>
       )}
       <p className="mt-5 text-center text-sm">
         <Link to="/login" className="font-semibold text-brand-ink underline">

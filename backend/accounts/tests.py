@@ -2,7 +2,7 @@ from datetime import timedelta
 from unittest import mock
 
 from django.core.cache import cache
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -202,6 +202,24 @@ class PasswordResetTests(TestCase):
         response = self.confirm(self.sent_code(send_sms), password='12345678')
         self.assertEqual(response.status_code, 400)
         self.assertIn('new_password', response.data)
+
+    def test_live_site_never_shows_the_code(self, send_sms):
+        response = self.ask_code()
+        self.assertNotIn('simulated_code', response.data)
+        send_sms.assert_called_once()
+
+    @override_settings(DEBUG=True, BEEM_API_KEY='', BEEM_SECRET_KEY='')
+    def test_simulation_shows_the_code_instead_of_sending(self, send_sms):
+        response = self.ask_code()
+        code = response.data['simulated_code']
+        self.assertRegex(code, r'^\d{6}$')
+        send_sms.assert_not_called()
+        self.assertEqual(self.confirm(code).status_code, 200)
+
+    @override_settings(DEBUG=True, BEEM_API_KEY='key', BEEM_SECRET_KEY='secret')
+    def test_no_simulation_when_sms_keys_are_set(self, send_sms):
+        self.assertNotIn('simulated_code', self.ask_code().data)
+        send_sms.assert_called_once()
 
     def test_sms_failure_is_reported_and_not_counted(self, send_sms):
         from notifications.sms import SMSError

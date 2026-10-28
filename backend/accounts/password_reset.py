@@ -8,7 +8,7 @@ from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 
-from notifications.sms import send_sms
+from notifications.sms import is_simulated, send_sms
 
 from .models import PasswordResetCode, User
 
@@ -31,6 +31,8 @@ def request_code(phone):
 
     It does nothing for unknown numbers, so this can't be used to find out who has an account.
     Raises notifications.sms.SMSError if the SMS could not be sent.
+    In SMS simulation (a developer's computer, see notifications.sms.is_simulated) the code is
+    returned instead, so the app can show it on screen; otherwise this returns None.
     """
     user = User.objects.filter(phone=phone, is_active=True).first()
     if user is None:
@@ -42,6 +44,9 @@ def request_code(phone):
 
     code = f'{secrets.randbelow(1_000_000):06d}'
     reset = PasswordResetCode.objects.create(user=user, code_hash=make_password(code))
+    if is_simulated():
+        print(f'\n[SMS simulation for {user.phone}] {MESSAGE.format(code=code)}\n', flush=True)
+        return code
     try:
         send_sms(user.phone, MESSAGE.format(code=code))
     except Exception:
