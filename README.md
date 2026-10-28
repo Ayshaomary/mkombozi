@@ -1,3 +1,5 @@
+<img src="frontend/public/logo.svg" alt="SAVIOR Inventory System" width="360">
+
 # SAVIOR Inventory System
 
 > The app was first called MUKOMBOZI (Kiswahili for "savior"). Internal names still use `mukombozi`:
