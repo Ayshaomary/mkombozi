@@ -246,3 +246,61 @@ class AdminUserFormTests(TestCase):
             '/api/auth/login/', {'phone': '0745111222', 'password': 'Msimamizi2026!'}, format='json'
         )
         self.assertEqual(response.status_code, 200)
+
+
+class ProfilePhotoTests(TestCase):
+    # The smallest valid JPEG header bytes are enough: the server checks the type, not the picture
+    JPEG = b'\xff\xd8\xff\xe0' + b'\x00' * 100
+
+    def setUp(self):
+        self.business, self.owner = make_business()
+        self.client = client_for(self.owner)
+
+    def upload(self, data, prefix='data:image/jpeg;base64,'):
+        import base64
+
+        return self.client.put('/api/auth/me/photo/', {'image': prefix + base64.b64encode(data).decode()}, format='json')
+
+    def test_upload_show_and_remove(self):
+        response = self.upload(self.JPEG)
+        self.assertEqual(response.status_code, 200, response.data)
+        key = response.data['avatar_key']
+        self.assertIsNotNone(key)
+
+        # Anyone with the address can see it (it is shown in <img> tags), with safe headers
+        image = APIClient().get(f'/api/avatars/{key}/')
+        self.assertEqual(image.status_code, 200)
+        self.assertEqual(image['Content-Type'], 'image/jpeg')
+        self.assertEqual(image['X-Content-Type-Options'], 'nosniff')
+        self.assertEqual(image.content, self.JPEG)
+
+        # A new photo gets a new address; the old one is gone
+        new_key = self.upload(self.JPEG + b'\x01').data['avatar_key']
+        self.assertNotEqual(new_key, key)
+        self.assertEqual(APIClient().get(f'/api/avatars/{key}/').status_code, 404)
+
+        response = self.client.delete('/api/auth/me/photo/')
+        self.assertIsNone(response.data['avatar_key'])
+        self.assertEqual(APIClient().get(f'/api/avatars/{new_key}/').status_code, 404)
+
+    def test_type_comes_from_the_file_not_the_label(self):
+        png = b'\x89PNG\r\n\x1a\n' + b'\x00' * 50
+        key = self.upload(png, prefix='data:image/jpeg;base64,').data['avatar_key']
+        self.assertEqual(APIClient().get(f'/api/avatars/{key}/')['Content-Type'], 'image/png')
+
+    def test_refuses_svg_and_other_files(self):
+        svg = b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
+        self.assertEqual(self.upload(svg, prefix='data:image/svg+xml;base64,').status_code, 400)
+        self.assertEqual(self.upload(b'<html>hi</html>').status_code, 400)
+        self.assertEqual(self.client.put('/api/auth/me/photo/', {'image': 'not a photo'}, format='json').status_code, 400)
+
+    def test_refuses_too_big_photo(self):
+        self.assertEqual(self.upload(self.JPEG + b'\x00' * 310 * 1024).status_code, 400)
+
+    def test_must_be_logged_in_to_upload(self):
+        self.assertEqual(APIClient().put('/api/auth/me/photo/', {'image': ''}, format='json').status_code, 401)
+
+    def test_email_can_be_added_to_profile(self):
+        response = self.client.patch('/api/auth/me/', {'email': 'juma@example.com'}, format='json')
+        self.assertEqual(response.data['email'], 'juma@example.com')
+        self.assertEqual(self.client.patch('/api/auth/me/', {'email': 'not-an-email'}, format='json').status_code, 400)

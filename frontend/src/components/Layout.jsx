@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import Avatar from './Avatar'
 import { OfflineProvider } from '../context/OfflineContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import Icon from './Icon'
@@ -15,8 +16,9 @@ const NAV_ITEMS = [
   { to: '/expenses', icon: 'wallet', label: 'nav.expenses' },
   { to: '/reports', icon: 'chart', label: 'nav.reports', ownerOnly: true },
   { to: '/subscription', icon: 'card', label: 'nav.subscription' },
-  { to: '/settings', icon: 'settings', label: 'nav.settings' },
+  { to: '/settings', icon: 'settings', label: 'nav.settings', ownerOnly: true },
   { to: '/manage', icon: 'users', label: 'nav.admin', adminOnly: true },
+  { to: '/profile', icon: 'user', label: 'nav.profile', everyone: true },
 ]
 
 export function Logo({ className = '' }) {
@@ -46,7 +48,7 @@ function NavList({ onNavigate }) {
   const { user, isOwner, isAdmin } = useAuth()
   // Shop pages need a shop; admins without one only see the admin dashboard
   const visible = NAV_ITEMS.filter((item) =>
-    item.adminOnly ? isAdmin : Boolean(user.business) && (isOwner || !item.ownerOnly),
+    item.everyone || (item.adminOnly ? isAdmin : Boolean(user.business) && (isOwner || !item.ownerOnly)),
   )
   return (
     <nav className="flex flex-col gap-1">
@@ -70,16 +72,21 @@ function NavList({ onNavigate }) {
   )
 }
 
-function UserBox() {
+function UserBox({ onNavigate }) {
   const { t } = useLanguage()
   const { user, logout } = useAuth()
   return (
     <div className="border-t border-line pt-4">
-      <p className="truncate text-sm font-semibold text-ink">{user.business?.name ?? t('nav.admin')}</p>
-      <p className="truncate text-xs text-muted">
-        {user.first_name}
-        {user.business && ` · ${user.role === 'owner' ? t('settings.owner') : t('settings.staffRole')}`}
-      </p>
+      <Link to="/profile" onClick={onNavigate} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-1 hover:bg-soft">
+        <Avatar user={user} size={36} />
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-semibold text-ink">{user.business?.name ?? t('nav.admin')}</span>
+          <span className="block truncate text-xs text-muted">
+            {user.first_name}
+            {user.business && ` · ${user.role === 'owner' ? t('settings.owner') : t('settings.staffRole')}`}
+          </span>
+        </span>
+      </Link>
       <div className="mt-3 flex items-center justify-between">
         <LanguageToggle className="-ml-2" />
         <button
@@ -182,7 +189,7 @@ function Shell() {
               </div>
               <NavList onNavigate={() => setMenuOpen(false)} />
             </div>
-            <UserBox />
+            <UserBox onNavigate={() => setMenuOpen(false)} />
           </div>
         </div>
       )}

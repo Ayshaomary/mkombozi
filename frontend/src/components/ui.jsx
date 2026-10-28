@@ -299,3 +299,21 @@ export function PeriodFilter({ value, onChange, includeAll = false }) {
     />
   )
 }
+
+// The Save button of a form, with "Saved" or the error next to it (see lib/useSaveForm.js)
+export function SaveRow({ saving, saved, error }) {
+  const { t } = useLanguage()
+  return (
+    <div className="flex items-center gap-3">
+      <Button type="submit" loading={saving}>
+        {t('common.save')}
+      </Button>
+      {saved && (
+        <span className="flex items-center gap-1 text-sm text-good">
+          <Icon name="check" size={16} /> {t('common.saved')}
+        </span>
+      )}
+      {error && Object.keys(error.fields).length === 0 && <span className="text-sm text-bad">{error.message}</span>}
+    </div>
+  )
+}

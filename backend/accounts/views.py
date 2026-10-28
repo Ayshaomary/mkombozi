@@ -1,5 +1,8 @@
 import logging
 
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+from django.views.decorators.http import require_GET
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -8,14 +11,15 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 
 from notifications.sms import SMSError
 
-from . import password_reset
-from .models import User
+from . import password_reset, photos
+from .models import Avatar, User
 from .permissions import HasBusiness, IsOwner, IsOwnerOrReadOnly
 from .serializers import (
     BusinessSerializer,
     ChangePasswordSerializer,
     LoginSerializer,
     PasswordResetConfirmSerializer,
+    PhotoSerializer,
     PasswordResetRequestSerializer,
     RegisterSerializer,
     StaffSerializer,
@@ -50,6 +54,31 @@ class MeView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+
+class MyPhotoView(APIView):
+    """PUT a new profile photo as {"image": "data:image/jpeg;base64,..."}, or DELETE it."""
+
+    def put(self, request):
+        serializer = PhotoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        photos.set_photo(request.user, *serializer.validated_data['image'])
+        return Response(UserSerializer(request.user).data)
+
+    def delete(self, request):
+        photos.remove_photo(request.user)
+        return Response(UserSerializer(request.user).data)
+
+
+@require_GET
+def avatar_image(request, key):
+    """A profile photo. Public, so <img> tags can show it; the key is long and random."""
+    avatar = get_object_or_404(Avatar.objects.only('image', 'content_type'), key=key)
+    response = HttpResponse(bytes(avatar.image), content_type=avatar.content_type)
+    # A new photo gets a new key, so this one never changes and browsers may keep it
+    response['Cache-Control'] = 'public, max-age=31536000, immutable'
+    response['X-Content-Type-Options'] = 'nosniff'
+    return response
 
 
 class BusinessView(generics.RetrieveUpdateAPIView):

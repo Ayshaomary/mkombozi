@@ -1,87 +1,12 @@
 import { useState } from 'react'
-import Icon from '../components/Icon'
-import { Badge, Button, Card, EmptyState, ErrorBox, Input, Loading, Modal, PageHeader, PhoneInput, SegmentedControl, Select } from '../components/ui'
+import Avatar from '../components/Avatar'
+import { Badge, Button, Card, EmptyState, ErrorBox, Input, Loading, Modal, PageHeader, PhoneInput, SaveRow, Select } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { api } from '../lib/api'
 import { SHOP_TYPES } from '../lib/constants'
 import { useApi } from '../lib/useApi'
-
-// A small form that saves itself and shows "Saved" afterwards.
-// If saveFn returns an object, the form is reset to it (e.g. to clear password fields).
-function useSaveForm(initial, saveFn) {
-  const [form, setForm] = useState(initial)
-  const [error, setError] = useState(null)
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-
-  const field = (name) => ({
-    value: form[name] ?? '',
-    onChange: (e) => {
-      setForm({ ...form, [name]: e.target.value })
-      setSaved(false)
-    },
-    error: error?.fields?.[name],
-  })
-
-  const submit = async (event) => {
-    event.preventDefault()
-    setSaving(true)
-    setError(null)
-    try {
-      const nextForm = await saveFn(form)
-      if (nextForm) setForm(nextForm)
-      setSaved(true)
-    } catch (err) {
-      setError(err)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return { field, submit, error, saving, saved }
-}
-
-function SaveRow({ saving, saved, error }) {
-  const { t } = useLanguage()
-  return (
-    <div className="flex items-center gap-3">
-      <Button type="submit" loading={saving}>
-        {t('common.save')}
-      </Button>
-      {saved && (
-        <span className="flex items-center gap-1 text-sm text-good">
-          <Icon name="check" size={16} /> {t('common.saved')}
-        </span>
-      )}
-      {error && Object.keys(error.fields).length === 0 && <span className="text-sm text-bad">{error.message}</span>}
-    </div>
-  )
-}
-
-function ProfileForm() {
-  const { t } = useLanguage()
-  const { user, refreshUser } = useAuth()
-  const { field, submit, ...state } = useSaveForm(
-    { first_name: user.first_name, last_name: user.last_name },
-    async (form) => {
-      await api.patch('/auth/me/', form)
-      await refreshUser()
-    },
-  )
-  return (
-    <Card title={t('settings.profile')}>
-      <form onSubmit={submit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <Input label={t('auth.firstName')} required {...field('first_name')} />
-          <Input label={t('auth.lastName')} {...field('last_name')} />
-        </div>
-        <Input label={t('auth.phone')} value={user.phone} disabled readOnly />
-        <SaveRow {...state} />
-      </form>
-    </Card>
-  )
-}
+import { useSaveForm } from '../lib/useSaveForm'
 
 function BusinessForm() {
   const { t } = useLanguage()
@@ -110,31 +35,6 @@ function BusinessForm() {
         />
         <PhoneInput label={t('settings.businessPhone')} {...field('phone')} />
         <Input label={t('auth.businessLocation')} {...field('location')} />
-        <SaveRow {...state} />
-      </form>
-    </Card>
-  )
-}
-
-function PasswordForm() {
-  const { t } = useLanguage()
-  const { field, submit, ...state } = useSaveForm({ old_password: '', new_password: '' }, async (form) => {
-    await api.post('/auth/change-password/', form)
-    return { old_password: '', new_password: '' }
-  })
-  return (
-    <Card title={t('settings.changePassword')}>
-      <form onSubmit={submit} className="space-y-4">
-        <Input label={t('settings.oldPassword')} type="password" autoComplete="current-password" required {...field('old_password')} />
-        <Input
-          label={t('settings.newPassword')}
-          type="password"
-          autoComplete="new-password"
-          hint={t('auth.passwordHint')}
-          minLength={8}
-          required
-          {...field('new_password')}
-        />
         <SaveRow {...state} />
       </form>
     </Card>
@@ -235,11 +135,14 @@ function StaffSection() {
         <ul className="divide-y divide-line">
           {data.map((member) => (
             <li key={member.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
-              <div className="min-w-0">
-                <p className="font-medium text-ink">
-                  {member.first_name} {member.last_name}
-                </p>
-                <p className="text-xs text-muted">{member.phone}</p>
+              <div className="flex min-w-0 items-center gap-3">
+                <Avatar user={member} size={36} />
+                <div className="min-w-0">
+                  <p className="font-medium text-ink">
+                    {member.first_name} {member.last_name}
+                  </p>
+                  <p className="text-xs text-muted">{member.phone}</p>
+                </div>
               </div>
               {member.role === 'owner' ? (
                 <Badge tone="good">{t('settings.owner')}</Badge>
@@ -267,34 +170,15 @@ function StaffSection() {
   )
 }
 
+// The shop's settings, for the owner. Personal settings (photo, name, password) are on the profile page.
 export default function SettingsPage() {
-  const { t, lang, setLang } = useLanguage()
-  const { isOwner } = useAuth()
+  const { t } = useLanguage()
   return (
     <>
       <PageHeader title={t('settings.title')} />
       <div className="grid gap-5 lg:grid-cols-2">
-        <div className="space-y-5">
-          <ProfileForm />
-          <Card title={t('settings.language')}>
-            <SegmentedControl
-              value={lang}
-              onChange={setLang}
-              label={t('settings.language')}
-              options={[
-                { value: 'sw', label: 'Kiswahili' },
-                { value: 'en', label: 'English' },
-              ]}
-            />
-          </Card>
-          <PasswordForm />
-        </div>
-        {isOwner && (
-          <div className="space-y-5">
-            <BusinessForm />
-            <StaffSection />
-          </div>
-        )}
+        <BusinessForm />
+        <StaffSection />
       </div>
     </>
   )

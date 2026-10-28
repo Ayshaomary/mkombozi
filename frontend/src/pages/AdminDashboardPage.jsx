@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import Avatar from '../components/Avatar'
 import {
   Badge,
   Button,
@@ -311,16 +312,19 @@ function UsersTab({ onShowActivity }) {
           <ul className="divide-y divide-line">
             {users.items.map((u) => (
               <li key={u.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
-                <div className="min-w-0">
-                  <p className="flex flex-wrap items-center gap-2 font-medium text-ink">
-                    {fullName(u)}
-                    {u.business && <Badge>{u.role === 'owner' ? t('settings.owner') : t('settings.staffRole')}</Badge>}
-                    {u.is_staff && <Badge tone="good">{t('admin.admin')}</Badge>}
-                    {!u.is_active && <Badge tone="bad">{t('admin.inactive')}</Badge>}
-                  </p>
-                  <p className="truncate text-xs text-muted">
-                    {u.phone} · {u.business_name ?? t('admin.noShop')} · {t('admin.joined', { date: formatDate(u.date_joined, lang) })}
-                  </p>
+                <div className="flex min-w-0 items-center gap-3">
+                  <Avatar user={u} size={40} />
+                  <div className="min-w-0">
+                    <p className="flex flex-wrap items-center gap-2 font-medium text-ink">
+                      {fullName(u)}
+                      {u.business && <Badge>{u.role === 'owner' ? t('settings.owner') : t('settings.staffRole')}</Badge>}
+                      {u.is_staff && <Badge tone="good">{t('admin.admin')}</Badge>}
+                      {!u.is_active && <Badge tone="bad">{t('admin.inactive')}</Badge>}
+                    </p>
+                    <p className="truncate text-xs text-muted">
+                      {u.phone} · {u.business_name ?? t('admin.noShop')} · {t('admin.joined', { date: formatDate(u.date_joined, lang) })}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex shrink-0 gap-2">
                   <Button size="sm" variant="secondary" icon="history" onClick={() => onShowActivity(u, fullName(u))}>

@@ -7,6 +7,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from subscriptions.models import Subscription
 
 from .models import Business, User
+from . import photos
 from .utils import normalize_phone, phone_too_long
 
 
@@ -37,8 +38,11 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'phone', 'first_name', 'last_name', 'role', 'business', 'is_staff', 'is_superuser']
-        read_only_fields = ['phone', 'role', 'is_staff', 'is_superuser']
+        fields = [
+            'id', 'phone', 'first_name', 'last_name', 'email', 'role', 'business',
+            'is_staff', 'is_superuser', 'avatar_key',
+        ]
+        read_only_fields = ['phone', 'role', 'is_staff', 'is_superuser', 'avatar_key']
 
 
 class PhoneField(serializers.CharField):
@@ -104,8 +108,8 @@ class StaffSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'phone', 'first_name', 'last_name', 'role', 'password', 'date_joined']
-        read_only_fields = ['role', 'date_joined']
+        fields = ['id', 'phone', 'first_name', 'last_name', 'role', 'password', 'date_joined', 'avatar_key']
+        read_only_fields = ['role', 'date_joined', 'avatar_key']
 
     def validate_phone(self, value):
         if User.objects.filter(phone=value).exists():
@@ -128,6 +132,17 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     def validate_new_password(self, value):
         password_validation.validate_password(value)
         return value
+
+
+class PhotoSerializer(serializers.Serializer):
+    # A small photo as a data URL; the size limit is checked again after decoding
+    image = serializers.CharField(max_length=500_000)
+
+    def validate_image(self, value):
+        try:
+            return photos.decode_photo(value)
+        except photos.InvalidPhoto as exc:
+            raise serializers.ValidationError(str(exc)) from exc
 
 
 class ChangePasswordSerializer(serializers.Serializer):

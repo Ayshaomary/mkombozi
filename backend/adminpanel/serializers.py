@@ -29,9 +29,11 @@ class AdminUserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'phone', 'first_name', 'last_name', 'business', 'business_name', 'role',
-            'is_active', 'is_staff', 'is_superuser', 'date_joined',
+            'is_active', 'is_staff', 'is_superuser', 'date_joined', 'avatar_key',
         ]
-        read_only_fields = ['phone', 'first_name', 'last_name', 'business', 'is_superuser', 'date_joined']
+        read_only_fields = [
+            'phone', 'first_name', 'last_name', 'business', 'is_superuser', 'date_joined', 'avatar_key',
+        ]
 
     def validate(self, attrs):
         admin = self.context['request'].user

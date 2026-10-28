@@ -1,3 +1,4 @@
+import uuid
 from datetime import timedelta
 
 from django.contrib.auth.models import AbstractUser, BaseUserManager
@@ -69,6 +70,8 @@ class User(AbstractUser):
         Business, on_delete=models.CASCADE, related_name='users', null=True, blank=True
     )
     role = models.CharField(max_length=10, choices=Role.choices, default=Role.OWNER)
+    # Points to the user's current profile photo (see Avatar); a new photo gets a new key
+    avatar_key = models.UUIDField(null=True, blank=True, editable=False)
 
     USERNAME_FIELD = 'phone'
     REQUIRED_FIELDS = ['first_name']
@@ -101,3 +104,22 @@ class PasswordResetCode(models.Model):
 
     def __str__(self):
         return f'Reset code for {self.user} at {self.created_at:%Y-%m-%d %H:%M}'
+
+
+class Avatar(models.Model):
+    """A user's profile photo, kept in the database.
+
+    The app shrinks photos to a small square before uploading, so they are only a few KB. Kept in
+    the database rather than as files because Render's free servers delete files on every restart.
+    The key is part of the photo's address and changes with every new photo, so browsers can keep a
+    photo forever without ever showing an old one.
+    """
+
+    key = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='avatar')
+    image = models.BinaryField()
+    content_type = models.CharField(max_length=20)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'Photo of {self.user}'

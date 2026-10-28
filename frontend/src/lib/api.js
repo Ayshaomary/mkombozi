@@ -1,6 +1,6 @@
 // All communication with the Django API goes through this file.
 
-const BASE_URL = import.meta.env.VITE_API_URL || '/api'
+export const BASE_URL = import.meta.env.VITE_API_URL || '/api'
 const TOKEN_KEY = 'mukombozi_tokens'
 
 export function getTokens() {
@@ -115,6 +115,7 @@ export async function request(path, { method = 'GET', body, params, retry = true
 export const api = {
   get: (path, params) => request(path, { params }),
   post: (path, body) => request(path, { method: 'POST', body }),
+  put: (path, body) => request(path, { method: 'PUT', body }),
   patch: (path, body) => request(path, { method: 'PATCH', body }),
   delete: (path) => request(path, { method: 'DELETE' }),
 }

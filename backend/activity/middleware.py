@@ -34,6 +34,7 @@ NAMED_PATHS = {
     '/api/auth/password-reset/': (Action.PASSWORD, 'Asked for a password reset code'),
     '/api/auth/password-reset/confirm/': (Action.PASSWORD, 'Reset password with an SMS code'),
     '/api/auth/me/': (Action.UPDATE, 'Changed own profile'),
+    '/api/auth/me/photo/': (Action.UPDATE, 'Changed profile photo'),
     '/api/business/': (Action.UPDATE, 'Changed business details'),
     '/api/subscription/payments/': (Action.CREATE, 'Started a subscription payment'),
 }

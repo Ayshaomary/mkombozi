@@ -8,6 +8,7 @@ import ExpensesPage from './pages/ExpensesPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import LoginPage from './pages/LoginPage'
 import NewSalePage from './pages/NewSalePage'
+import ProfilePage from './pages/ProfilePage'
 import ProductsPage from './pages/ProductsPage'
 import RegisterPage from './pages/RegisterPage'
 import ReportsPage from './pages/ReportsPage'
@@ -58,6 +59,7 @@ export default function App() {
 
       <Route element={<RequireAuth><Layout /></RequireAuth>}>
         <Route path="manage" element={<AdminOnly><AdminDashboardPage /></AdminOnly>} />
+        <Route path="profile" element={<ProfilePage />} />
         <Route element={<RequireBusiness />}>
           <Route index element={<OwnerOnly><DashboardPage /></OwnerOnly>} />
           <Route path="sell" element={<NewSalePage />} />
@@ -66,7 +68,7 @@ export default function App() {
           <Route path="expenses" element={<ExpensesPage />} />
           <Route path="reports" element={<OwnerOnly><ReportsPage /></OwnerOnly>} />
           <Route path="subscription" element={<SubscriptionPage />} />
-          <Route path="settings" element={<SettingsPage />} />
+          <Route path="settings" element={<OwnerOnly><SettingsPage /></OwnerOnly>} />
         </Route>
       </Route>
 
