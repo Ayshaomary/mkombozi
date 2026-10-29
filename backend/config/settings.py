@@ -232,12 +232,20 @@ BEEM_SECRET_KEY = os.environ.get('BEEM_SECRET_KEY', '')
 # The name the SMS comes from. 'INFO' works at first; your own name (e.g. SAVIOR) needs Beem's approval.
 BEEM_SENDER_ID = os.environ.get('BEEM_SENDER_ID', 'INFO')
 BEEM_SMS_URL = os.environ.get('BEEM_SMS_URL', 'https://apisms.beem.africa/v1/send')
+# Brevo email, used for password reset codes when the user has an email (key from Brevo > SMTP & API).
+# EMAIL_FROM must be a sender address you verified in Brevo (Senders, domains & IPs).
+# Without them, reset codes go by SMS only.
+BREVO_API_KEY = os.environ.get('BREVO_API_KEY', '')
+EMAIL_FROM = os.environ.get('EMAIL_FROM', '')
+EMAIL_FROM_NAME = os.environ.get('EMAIL_FROM_NAME', 'SAVIOR Inventory System')
+BREVO_EMAIL_URL = os.environ.get('BREVO_EMAIL_URL', 'https://api.brevo.com/v3/smtp/email')
 
 if 'test' in sys.argv:
-    # Tests must never send real payment requests or SMS
+    # Tests must never send real payment requests, SMS or email
     SONICPESA_API_KEY = SONICPESA_API_SECRET = ''
     CLICKPESA_CLIENT_ID = CLICKPESA_API_KEY = CLICKPESA_CHECKSUM_KEY = ''
     BEEM_API_KEY = BEEM_SECRET_KEY = ''
+    BREVO_API_KEY = EMAIL_FROM = ''
 
 
 # Where the React app is, for the link on the backend's home page

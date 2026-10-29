@@ -9,6 +9,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 
+from notifications.mail import EmailError
 from notifications.sms import SMSError
 
 from . import password_reset, photos
@@ -126,7 +127,7 @@ class ChangePasswordView(APIView):
 
 
 class PasswordResetRequestView(APIView):
-    """Forgot password, step 1: text a 6-digit code to the phone number."""
+    """Forgot password, step 1: send a 6-digit code to the user's email, or by SMS to the phone number."""
 
     authentication_classes = []
     permission_classes = [permissions.AllowAny]
@@ -138,14 +139,15 @@ class PasswordResetRequestView(APIView):
         serializer.is_valid(raise_exception=True)
         try:
             simulated_code = password_reset.request_code(serializer.validated_data['phone'])
-        except SMSError:
-            logger.exception('Password reset SMS failed')
+        except (SMSError, EmailError):
+            logger.exception('Password reset code could not be sent')
             return Response(
-                {'detail': 'We could not send the SMS right now. Please try again later.'},
+                {'detail': 'We could not send the code right now. Please try again later, '
+                           'or ask the SAVIOR team to reset your password.'},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         # The same answer whether or not the number has an account
-        answer = {'detail': 'If this number has an account, a code has been sent by SMS.'}
+        answer = {'detail': 'If this number has an account, a code has been sent by SMS or email.'}
         if simulated_code:
             # Only on a developer's computer without SMS keys (see notifications.sms.is_simulated)
             answer['simulated_code'] = simulated_code

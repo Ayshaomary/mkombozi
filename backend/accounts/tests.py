@@ -1,4 +1,5 @@
 import base64
+import re
 from datetime import timedelta
 from unittest import mock
 
@@ -6,6 +7,8 @@ from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
+
+from notifications import mail
 
 from . import password_reset
 from .models import PasswordResetCode, User
@@ -234,6 +237,43 @@ class PasswordResetTests(TestCase):
         response = self.confirm(self.sent_code(send_sms), password='12345678')
         self.assertEqual(response.status_code, 400)
         self.assertIn('new_password', response.data)
+
+    @override_settings(BREVO_API_KEY='brevo', EMAIL_FROM='savior@example.com')
+    def test_code_by_email_when_user_has_email(self, send_sms):
+        self.owner.email = 'juma@example.com'
+        self.owner.save()
+        with mock.patch.object(mail, 'send_email') as send_email:
+            response = self.ask_code()
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn('simulated_code', response.data)
+        send_sms.assert_not_called()
+        self.assertEqual(send_email.call_args.args[0], 'juma@example.com')
+        code = re.search(r'\b(\d{6})\b', send_email.call_args.args[2])[1]
+        self.assertEqual(self.confirm(code).status_code, 200)
+
+    @override_settings(BREVO_API_KEY='brevo', EMAIL_FROM='savior@example.com')
+    def test_user_without_email_gets_sms(self, send_sms):
+        with mock.patch.object(mail, 'send_email') as send_email:
+            self.ask_code()
+        send_email.assert_not_called()
+        send_sms.assert_called_once()
+
+    @override_settings(BREVO_API_KEY='brevo', EMAIL_FROM='savior@example.com', BEEM_API_KEY='b', BEEM_SECRET_KEY='s')
+    def test_failed_email_falls_back_to_sms(self, send_sms):
+        self.owner.email = 'juma@example.com'
+        self.owner.save()
+        with mock.patch.object(mail, 'send_email', side_effect=mail.EmailError('down')):
+            self.assertEqual(self.ask_code().status_code, 200)
+        send_sms.assert_called_once()
+
+    @override_settings(BREVO_API_KEY='brevo', EMAIL_FROM='savior@example.com')
+    def test_failed_email_without_sms_says_so_and_frees_the_limit(self, send_sms):
+        self.owner.email = 'juma@example.com'
+        self.owner.save()
+        with mock.patch.object(mail, 'send_email', side_effect=mail.EmailError('down')):
+            self.assertEqual(self.ask_code().status_code, 503)
+        send_sms.assert_not_called()
+        self.assertFalse(PasswordResetCode.objects.exists())
 
     def test_live_site_never_shows_the_code(self, send_sms):
         response = self.ask_code()

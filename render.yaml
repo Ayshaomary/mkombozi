@@ -68,6 +68,12 @@ services:
         sync: false
       - key: BEEM_SENDER_ID
         value: INFO
+      # Brevo email keys, for "forgot password" codes by email (free). Render asks you for these values.
+      # EMAIL_FROM is a sender address you verified in Brevo, e.g. your Gmail address.
+      - key: BREVO_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
 
   # React website
   - type: web

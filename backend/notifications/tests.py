@@ -1,10 +1,11 @@
 from datetime import date, timedelta
 from decimal import Decimal
+import json
 from io import StringIO
 from unittest import mock
 
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from accounts.models import User
@@ -13,6 +14,7 @@ from expenses.models import Expense, RecurringExpense, nth_occurrence
 from inventory.models import Product, StockMovement
 from inventory.services import change_stock
 
+from . import mail
 from .automations import check_subscription, run_automations, send_daily_summary
 from .models import Notification
 
@@ -201,3 +203,24 @@ class NotificationApiTests(TestCase):
         RecurringExpense.objects.create(business=self.business, amount=1000, start_date=timezone.localdate(), frequency='monthly')
         call_command('run_automations', stdout=StringIO())
         self.assertEqual(Expense.objects.count(), 1)
+
+
+@override_settings(BREVO_API_KEY='brevo-key', EMAIL_FROM='savior@example.com', EMAIL_FROM_NAME='SAVIOR')
+class EmailTests(TestCase):
+    def test_sends_through_brevo_api(self):
+        with mock.patch.object(mail.request, 'urlopen') as urlopen:
+            mail.send_email('juma@example.com', 'Hello', 'Code 123456')
+        sent = urlopen.call_args.args[0]
+        self.assertEqual(sent.full_url, 'https://api.brevo.com/v3/smtp/email')
+        self.assertEqual(sent.get_header('Api-key'), 'brevo-key')
+        self.assertEqual(json.loads(sent.data), {
+            'sender': {'name': 'SAVIOR', 'email': 'savior@example.com'},
+            'to': [{'email': 'juma@example.com'}],
+            'subject': 'Hello',
+            'textContent': 'Code 123456',
+        })
+
+    def test_brevo_refusal_raises_email_error(self):
+        with mock.patch.object(mail.request, 'urlopen', side_effect=mail.error.URLError('down')):
+            with self.assertRaises(mail.EmailError):
+                mail.send_email('juma@example.com', 'Hello', 'Code')

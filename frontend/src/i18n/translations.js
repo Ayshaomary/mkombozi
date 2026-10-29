@@ -60,9 +60,10 @@ export const translations = {
       chooseShopType: 'Choose the type of shop…',
       forgotPassword: 'Forgot password?',
       resetTitle: 'Reset your password',
-      resetIntro: 'Enter your phone number. We will send you a 6-digit code by SMS.',
+      resetIntro: 'Enter your phone number. We will send you a 6-digit code by email (if your profile has one) or by SMS.',
       sendCode: 'Send code',
-      codeSent: 'If {phone} has an account, we have sent a 6-digit code by SMS. It works for 10 minutes.',
+      codeSent:
+        'If {phone} has an account, we have sent a 6-digit code to its email (check Spam too) or by SMS. It works for 10 minutes.',
       code: 'Code from the SMS',
       newPassword: 'New password',
       setPassword: 'Save new password and log in',
@@ -192,7 +193,7 @@ export const translations = {
       photoHint: 'Your photo is shown to your shop and to SAVIOR admins. Choose a clear photo of your face.',
       photoError: 'This photo could not be opened. Try a JPEG or PNG photo.',
       email: 'Email',
-      emailHint: 'Optional',
+      emailHint: 'Optional. If you forget your password, we send the reset code here.',
       phoneHint: 'Your phone number is used to log in, so it cannot be changed here.',
     },
     production: {
@@ -685,9 +686,11 @@ export const translations = {
       chooseShopType: 'Chagua aina ya duka…',
       forgotPassword: 'Umesahau nenosiri?',
       resetTitle: 'Badilisha nenosiri',
-      resetIntro: 'Weka namba yako ya simu. Tutakutumia namba ya siri ya tarakimu 6 kwa SMS.',
+      resetIntro:
+        'Weka namba yako ya simu. Tutakutumia namba ya siri ya tarakimu 6 kwa barua pepe (kama umeiweka kwenye wasifu wako) au kwa SMS.',
       sendCode: 'Tuma namba ya siri',
-      codeSent: 'Kama {phone} ina akaunti, tumetuma namba ya siri ya tarakimu 6 kwa SMS. Inafanya kazi kwa dakika 10.',
+      codeSent:
+        'Kama {phone} ina akaunti, tumetuma namba ya siri ya tarakimu 6 kwa barua pepe yake (angalia pia Spam) au kwa SMS. Inafanya kazi kwa dakika 10.',
       code: 'Namba kutoka kwenye SMS',
       newPassword: 'Nenosiri jipya',
       setPassword: 'Hifadhi nenosiri jipya na uingie',
@@ -816,7 +819,7 @@ export const translations = {
       photoHint: 'Picha yako inaonekana kwa duka lako na kwa ma-admin wa SAVIOR. Chagua picha inayoonyesha uso wako vizuri.',
       photoError: 'Picha hii haikuweza kufunguliwa. Jaribu picha ya JPEG au PNG.',
       email: 'Barua pepe',
-      emailHint: 'Si lazima',
+      emailHint: 'Si lazima. Ukisahau nenosiri, tutakutumia namba ya siri hapa.',
       phoneHint: 'Namba yako ya simu inatumika kuingia, kwa hiyo haiwezi kubadilishwa hapa.',
     },
     production: {

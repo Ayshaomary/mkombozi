@@ -19,6 +19,7 @@ A web app for small businesses in Tanzania: record sales, track expenses, manage
 ## Features
 
 - **Login with phone number.** `0712 345 678`, `255712345678` and `+255712345678` are all treated as the same number.
+- **Forgot password.** A 6-digit code goes to the user's email (Brevo, free) if their profile has one, otherwise by SMS (Beem). Set the keys in `backend/.env` (see `.env.example`). On your computer without SMS keys, the code is shown in the browser instead.
 - **Owner and staff roles.** Staff can record sales and expenses and view products. Only the owner sees profit, edits products, deletes records and pays.
 - **Products and stock.** Every stock change (opening stock, purchase, sale, adjustment, return) is recorded with who, when and why.
 - **Sales.** Stock goes down automatically, receipts are numbered (`R00001`...), and the buying price at the time of sale is saved so profit stays correct.
