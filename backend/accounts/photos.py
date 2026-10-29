@@ -1,4 +1,4 @@
-"""Profile photos: check an uploaded photo and save or remove it."""
+"""Profile photos and business logos: check an uploaded picture and save or remove it."""
 
 import base64
 import binascii
@@ -6,7 +6,7 @@ import re
 
 from django.db import transaction
 
-from .models import Avatar
+from .models import Avatar, Logo
 
 # The app sends a small square photo (about 20-40 KB); this leaves plenty of room
 MAX_BYTES = 300 * 1024
@@ -58,3 +58,18 @@ def remove_photo(user):
     Avatar.objects.filter(user=user).delete()
     user.avatar_key = None
     user.save(update_fields=['avatar_key'])
+
+
+@transaction.atomic
+def set_logo(business, data, content_type):
+    Logo.objects.filter(business=business).delete()
+    logo = Logo.objects.create(business=business, image=data, content_type=content_type)
+    business.logo_key = logo.key
+    business.save(update_fields=['logo_key'])
+
+
+@transaction.atomic
+def remove_logo(business):
+    Logo.objects.filter(business=business).delete()
+    business.logo_key = None
+    business.save(update_fields=['logo_key'])

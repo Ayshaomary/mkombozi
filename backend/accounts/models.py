@@ -28,10 +28,12 @@ class Business(models.Model):
     business_type = models.CharField(max_length=20, choices=Type.choices, default=Type.OTHER)
     phone = models.CharField(max_length=20, blank=True)
     location = models.CharField(max_length=150, blank=True)
-    # Shown at the top of printed lists and receipts, with the owner's profile photo
+    # Shown at the top of printed lists and receipts, with the logo
     description = models.CharField(max_length=300, blank=True)
     address = models.CharField(max_length=255, blank=True)
     email = models.EmailField(blank=True)
+    # Points to the business's current logo (see Logo); a new logo gets a new key
+    logo_key = models.UUIDField(null=True, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     # When the automatic tasks (recurring expenses, alerts) last ran for this business
     automations_ran_at = models.DateTimeField(null=True, blank=True, editable=False)
@@ -155,3 +157,16 @@ class Avatar(models.Model):
 
     def __str__(self):
         return f'Photo of {self.user}'
+
+
+class Logo(models.Model):
+    """A business's logo, printed at the top of lists and receipts. Kept like Avatar, for the same reasons."""
+
+    key = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    business = models.OneToOneField(Business, on_delete=models.CASCADE, related_name='logo')
+    image = models.BinaryField()
+    content_type = models.CharField(max_length=20)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'Logo of {self.business}'

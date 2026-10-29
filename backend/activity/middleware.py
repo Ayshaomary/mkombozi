@@ -39,6 +39,7 @@ NAMED_PATHS = {
     '/api/auth/me/': (Action.UPDATE, 'Changed own profile'),
     '/api/auth/me/photo/': (Action.UPDATE, 'Changed profile photo'),
     '/api/business/': (Action.UPDATE, 'Changed business details'),
+    '/api/business/logo/': (Action.UPDATE, 'Changed business logo'),
     '/api/subscription/payments/': (Action.CREATE, 'Started a subscription payment'),
 }
 

@@ -1,4 +1,4 @@
-import uuid
+import base64
 from datetime import timedelta
 from unittest import mock
 
@@ -132,25 +132,36 @@ class StaffTests(TestCase):
         self.assertEqual(staff.business, self.business)
         self.assertEqual(client_for(staff).get('/api/staff/').status_code, 403)
 
-    def test_letterhead_details_and_owner_photo_reach_staff(self):
+    def test_letterhead_details_and_logo_reach_staff(self):
         details = {
             'description': 'Wholesale soap and cooking oil',
             'address': 'P.O. Box 123, Msimbazi Street',
             'email': 'duka@example.com',
         }
-        response = client_for(self.owner).patch('/api/business/', details, format='json')
+        owner = client_for(self.owner)
+        response = owner.patch('/api/business/', details, format='json')
         self.assertEqual(response.status_code, 200, response.data)
-        self.assertIsNone(response.data['owner_avatar_key'])
+        self.assertIsNone(response.data['logo_key'])
 
-        self.owner.avatar_key = uuid.uuid4()
-        self.owner.save()
+        png = b'\x89PNG\r\n\x1a\n' + b'\x00' * 50
+        logo = {'image': 'data:image/png;base64,' + base64.b64encode(png).decode()}
+        key = owner.put('/api/business/logo/', logo, format='json').data['logo_key']
+        self.assertIsNotNone(key)
+        image = APIClient().get(f'/api/logos/{key}/')
+        self.assertEqual(image['Content-Type'], 'image/png')
+        self.assertEqual(image.content, png)
+
         staff = User.objects.create_user(
             phone='+255655000111', password='x', business=self.business, role=User.Role.STAFF
         )
-        # Printing by staff shows the owner's photo, not the staff member's
+        # Staff print the same letterhead, but can't change the logo
         business = client_for(staff).get('/api/auth/me/').data['business']
-        self.assertEqual(business['owner_avatar_key'], str(self.owner.avatar_key))
+        self.assertEqual(business['logo_key'], key)
         self.assertEqual({k: business[k] for k in details}, details)
+        self.assertEqual(client_for(staff).delete('/api/business/logo/').status_code, 403)
+
+        self.assertIsNone(owner.delete('/api/business/logo/').data['logo_key'])
+        self.assertEqual(APIClient().get(f'/api/logos/{key}/').status_code, 404)
 
     def test_owner_cannot_delete_themselves(self):
         response = client_for(self.owner).delete(f'/api/staff/{self.owner.pk}/')

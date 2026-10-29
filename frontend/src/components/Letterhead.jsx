@@ -1,20 +1,20 @@
 import { useState } from 'react'
-import { avatarUrl } from '../lib/photo'
+import { logoUrl } from '../lib/photo'
 
-// The top of a printed list or receipt: the owner's photo, the business name, what it does and how to reach it
+// The top of a printed list or receipt: the logo, the business name, what it does and how to reach it
 export default function Letterhead({ business, centered = false }) {
   const [brokenKey, setBrokenKey] = useState(null)
   if (!business) return null
-  const key = business.owner_avatar_key
+  const key = business.logo_key
   const place = [business.address, business.location].filter(Boolean).join(', ')
   const contact = [business.phone, business.email].filter(Boolean).join(' · ')
   return (
     <div className={`flex items-center gap-3 ${centered ? 'flex-col text-center' : ''}`}>
       {key && key !== brokenKey && (
         <img
-          src={avatarUrl(key)}
+          src={logoUrl(key)}
           alt=""
-          className="h-16 w-16 shrink-0 rounded-full object-cover"
+          className="h-16 max-w-40 shrink-0 object-contain"
           onError={() => setBrokenKey(key)}
         />
       )}

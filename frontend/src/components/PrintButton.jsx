@@ -6,7 +6,7 @@ import { formatDateTime } from '../lib/format'
 import Letterhead from './Letterhead'
 import { Button } from './ui'
 
-// Don't hold up printing for a photo that is slow to arrive
+// Don't hold up printing for a logo that is slow to arrive
 const IMAGE_WAIT_MS = 3000
 
 // Resolves once every picture in `element` has loaded (or failed), so it is on the paper
@@ -46,7 +46,7 @@ export default function PrintButton({ title, subtitle, load, columns, footer }) 
     }
   }
 
-  // Once the table and the owner's photo are on the page, open the browser's print window (also "Save as PDF")
+  // Once the table and the logo are on the page, open the browser's print window (also "Save as PDF")
   useEffect(() => {
     if (!sheet) return
     let cancelled = false

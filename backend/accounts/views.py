@@ -12,7 +12,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from notifications.sms import SMSError
 
 from . import password_reset, photos
-from .models import Avatar, User
+from .models import Avatar, Logo, User
 from .permissions import HasBusiness, IsOwner, IsOwnerOrReadOnly
 from .serializers import (
     BusinessSerializer,
@@ -88,6 +88,32 @@ class BusinessView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user.business
+
+
+class BusinessLogoView(APIView):
+    """PUT a new business logo as {"image": "data:image/png;base64,..."}, or DELETE it. Owner only."""
+
+    permission_classes = [HasBusiness, IsOwner]
+
+    def put(self, request):
+        serializer = PhotoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        photos.set_logo(request.user.business, *serializer.validated_data['image'])
+        return Response(BusinessSerializer(request.user.business).data)
+
+    def delete(self, request):
+        photos.remove_logo(request.user.business)
+        return Response(BusinessSerializer(request.user.business).data)
+
+
+@require_GET
+def logo_image(request, key):
+    """A business logo. Public like profile photos, for the same reason."""
+    logo = get_object_or_404(Logo.objects.only('image', 'content_type'), key=key)
+    response = HttpResponse(bytes(logo.image), content_type=logo.content_type)
+    response['Cache-Control'] = 'public, max-age=31536000, immutable'
+    response['X-Content-Type-Options'] = 'nosniff'
+    return response
 
 
 class ChangePasswordView(APIView):

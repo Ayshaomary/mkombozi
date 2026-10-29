@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Avatar from '../components/Avatar'
+import Icon from '../components/Icon'
 import PermissionPicker from '../components/PermissionPicker'
 import { Badge, Button, Card, EmptyState, ErrorBox, Input, Loading, Modal, PageHeader, PhoneInput, SaveRow, Select, TextArea } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
@@ -7,8 +8,82 @@ import { useLanguage } from '../i18n/LanguageContext'
 import { api } from '../lib/api'
 import { PERMISSION_PRESETS, SHOP_TYPES } from '../lib/constants'
 import { presetOf } from '../lib/permissions'
+import { logoToDataUrl, logoUrl } from '../lib/photo'
 import { useApi } from '../lib/useApi'
 import { useSaveForm } from '../lib/useSaveForm'
+
+// The logo printed at the top of lists and receipts. Saved as soon as it is chosen, like a profile photo.
+function LogoPicker() {
+  const { t } = useLanguage()
+  const { user, refreshUser } = useAuth()
+  const fileInput = useRef(null)
+  const [error, setError] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const key = user.business.logo_key
+
+  const run = async (action) => {
+    setSaving(true)
+    setError(null)
+    try {
+      await action()
+      await refreshUser()
+    } catch (err) {
+      setError(err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const upload = (event) => {
+    const file = event.target.files[0]
+    // Lets the same file be chosen again later
+    event.target.value = ''
+    if (!file) return
+    run(async () => {
+      let image
+      try {
+        image = await logoToDataUrl(file)
+      } catch {
+        throw new Error(t('settings.logoError'))
+      }
+      await api.put('/business/logo/', { image })
+    })
+  }
+
+  return (
+    <div>
+      <p className="mb-1 text-sm font-medium text-ink-2">{t('settings.logo')}</p>
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex h-20 w-32 items-center justify-center rounded-lg border border-line-strong bg-white p-2">
+          {key ? (
+            <img src={logoUrl(key)} alt="" className="max-h-full max-w-full object-contain" />
+          ) : (
+            <Icon name="camera" size={24} className="text-muted" />
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <input ref={fileInput} type="file" accept="image/*" className="hidden" onChange={upload} />
+          <Button size="sm" icon="camera" loading={saving} onClick={() => fileInput.current.click()}>
+            {key ? t('settings.changeLogo') : t('settings.addLogo')}
+          </Button>
+          {key && (
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={saving}
+              onClick={() => window.confirm(t('settings.removeLogoConfirm')) && run(() => api.delete('/business/logo/'))}
+            >
+              {t('settings.removeLogo')}
+            </Button>
+          )}
+        </div>
+      </div>
+      <div className="mt-2">
+        <ErrorBox error={error} />
+      </div>
+    </div>
+  )
+}
 
 function BusinessForm() {
   const { t } = useLanguage()
@@ -30,7 +105,8 @@ function BusinessForm() {
   )
   return (
     <Card title={t('settings.business')}>
-      <form onSubmit={submit} className="space-y-4">
+      <LogoPicker />
+      <form onSubmit={submit} className="mt-4 space-y-4">
         <Input label={t('auth.businessName')} required {...field('name')} />
         <Select
           label={t('auth.shopType')}
