@@ -42,7 +42,16 @@ export const PERMISSION_PRESETS = {
 // Same as Product.Unit in inventory/models.py
 export const UNITS = ['piece', 'kg', 'litre', 'metre', 'box', 'packet', 'dozen', 'bag']
 
-export const SUBSCRIPTION_PROVIDERS = ['mpesa', 'tigopesa', 'airtelmoney', 'halopesa', 'manual']
+// 'controlnumber' is only offered when the server has ClickPesa switched on
+export const SUBSCRIPTION_PROVIDERS = ['mpesa', 'tigopesa', 'airtelmoney', 'halopesa', 'controlnumber', 'manual']
+
+// How to pay a ClickPesa control number on each network. M-Pesa's business number comes from the server.
+export const CONTROL_NUMBER_NETWORKS = [
+  { provider: 'mpesa', dial: '*150*00#', menu: 'Lipa kwa M-Pesa' },
+  { provider: 'tigopesa', dial: '*150*01#', menu: 'Lipia Bili', business: '889999' },
+  { provider: 'airtelmoney', dial: '*150*60#', menu: 'Lipia Bili', business: '901030' },
+  { provider: 'halopesa', dial: '*150*88#', menu: 'Lipia Bili', business: '889999' },
+]
 
 // How each mobile-money network's numbers start (same list as NETWORK_PREFIXES in subscriptions/models.py)
 export const NETWORK_PREFIXES = {

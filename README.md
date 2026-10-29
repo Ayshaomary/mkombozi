@@ -26,6 +26,7 @@ A web app for small businesses in Tanzania: record sales, track expenses, manage
 - **Expenses.** Rent, salaries, transport, electricity and water, and more.
 - **Reports.** Revenue, cost of goods sold, gross profit, expenses, net profit, best-selling products, payment methods and sales by day or month.
 - **Subscriptions.** A 14-day free trial and 3 plans (monthly, quarterly, yearly). When a subscription ends, the business can still view its data but can't add new records.
+- **Paying for a subscription.** A payment request to the owner's phone (SonicPesa Push USSD), or a **control number** (ClickPesa BillPay) the owner pays from M-Pesa, Mixx by Yas, Airtel Money, HaloPesa or CRDB. Both activate the subscription as soon as the money arrives. Set the keys in `backend/.env` (see `.env.example`); without them, an admin confirms payments by hand.
 - **Languages.** Kiswahili (default) and English. Works on phones, and supports dark mode.
 
 ### Automation
@@ -184,8 +185,7 @@ After that, every `git push` to `main` deploys again automatically.
 
 ## Next steps (ideas)
 
-1. **Mobile money payments.** Connect a payment aggregator (e.g. Selcom, AzamPay, ClickPesa) in `subscriptions/views.py`, so payments confirm automatically instead of by an admin.
-2. **Customer credit (madeni).** Track who owes money for sales paid on credit.
-3. **SMS / WhatsApp receipts** to customers.
-4. **Plan limits**, e.g. a maximum number of products or staff per plan.
-5. **Daily database backups** and a custom domain (e.g. `savior.co.tz`).
+1. **Customer credit (madeni).** Track who owes money for sales paid on credit.
+2. **SMS / WhatsApp receipts** to customers.
+3. **Plan limits**, e.g. a maximum number of products or staff per plan.
+4. **Daily database backups** and a custom domain (e.g. `savior.co.tz`).

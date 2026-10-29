@@ -4,13 +4,14 @@ import json
 from datetime import timedelta
 from unittest import mock
 
+from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
 from accounts.testing import client_for, make_business
 
-from . import sonicpesa
+from . import clickpesa, sonicpesa
 from .models import Plan, Subscription, SubscriptionPayment
 
 
@@ -183,3 +184,113 @@ class SonicPesaTests(TestCase):
     def test_webhook_for_unknown_order_is_ignored(self):
         response = self.webhook({'event': 'payout.success', 'data': {'withdrawal_id': 14}})
         self.assertEqual(response.status_code, 200)
+
+
+@override_settings(CLICKPESA_CLIENT_ID='client', CLICKPESA_API_KEY='key', CLICKPESA_CHECKSUM_KEY='ck_test')
+class ClickPesaTests(TestCase):
+    def setUp(self):
+        self.business, self.owner = make_business()
+        self.client = client_for(self.owner)
+        self.plan = Plan.objects.get(code='monthly')
+        # Forget earlier status checks, so the once-a-minute limit doesn't carry over between tests
+        cache.clear()
+
+    def start_payment(self):
+        with mock.patch.object(clickpesa, 'create_control_number', return_value='55042914871931') as create:
+            response = self.client.post(
+                '/api/subscription/payments/', {'plan': self.plan.pk, 'provider': 'controlnumber'}, format='json'
+            )
+        return response, create
+
+    def webhook(self, data, key='ck_test'):
+        with self.settings(CLICKPESA_CHECKSUM_KEY=key):
+            data = {**data, 'checksum': clickpesa.checksum(data)}
+        return APIClient().post(
+            '/api/subscription/clickpesa/webhook/', {'event': 'PAYMENT RECEIVED', 'data': data}, format='json'
+        )
+
+    def paid(self, **extra):
+        return {
+            'status': 'SUCCESS', 'orderReference': '55042914871931', 'paymentReference': 'P1',
+            'collectedAmount': '50000', 'channel': 'AIRTEL-MONEY', **extra,
+        }
+
+    def test_control_number_is_made_without_a_phone(self):
+        response, create = self.start_payment()
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['control_number'], '55042914871931')
+        self.assertEqual(response.data['status'], 'pending')
+        self.assertEqual(response.data['phone'], '')
+        self.assertEqual(create.call_args.kwargs['amount'], 50000)
+
+    def test_subscription_says_control_numbers_are_on(self):
+        self.assertTrue(self.client.get('/api/subscription/').data['control_numbers']['enabled'])
+        with self.settings(CLICKPESA_API_KEY=''):
+            self.assertFalse(self.client.get('/api/subscription/').data['control_numbers']['enabled'])
+
+    def test_refused_when_clickpesa_is_off(self):
+        with self.settings(CLICKPESA_API_KEY=''):
+            response = self.start_payment()[0]
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('provider', response.data)
+        self.assertFalse(SubscriptionPayment.objects.exists())
+
+    def test_clickpesa_error_marks_payment_failed(self):
+        with mock.patch.object(clickpesa, 'create_control_number', side_effect=clickpesa.ClickPesaError('Down')):
+            response = self.client.post(
+                '/api/subscription/payments/', {'plan': self.plan.pk, 'provider': 'controlnumber'}, format='json'
+            )
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(SubscriptionPayment.objects.get().status, 'failed')
+
+    def test_status_check_completes_payment(self):
+        payment_id = self.start_payment()[0].data['id']
+        url = f'/api/subscription/payments/{payment_id}/'
+        with mock.patch.object(clickpesa, 'payment_status', return_value=[]):
+            self.assertEqual(self.client.get(url).data['status'], 'pending')
+        # A failed attempt leaves the control number open, so the payer can try again
+        cache.clear()
+        with mock.patch.object(clickpesa, 'payment_status', return_value=[self.paid(status='FAILED')]):
+            self.assertEqual(self.client.get(url).data['status'], 'pending')
+        cache.clear()
+        with mock.patch.object(clickpesa, 'payment_status', return_value=[self.paid()]) as status:
+            response = self.client.get(url)
+        status.assert_called_once_with('55042914871931')
+        self.assertEqual(response.data['status'], 'completed')
+        self.assertEqual(response.data['provider'], 'airtelmoney')
+        self.assertEqual(Subscription.objects.get(business=self.business).days_left, 44)
+
+    def test_status_checks_are_limited_to_one_a_minute(self):
+        payment_id = self.start_payment()[0].data['id']
+        with mock.patch.object(clickpesa, 'payment_status', return_value=[]) as status:
+            for _ in range(3):
+                self.client.get(f'/api/subscription/payments/{payment_id}/')
+        status.assert_called_once()
+
+    def test_webhook_completes_payment_once(self):
+        self.start_payment()
+        self.assertEqual(self.webhook(self.paid()).status_code, 200)
+        self.assertEqual(self.webhook(self.paid()).status_code, 200)
+        payment = SubscriptionPayment.objects.get()
+        self.assertEqual(payment.status, 'completed')
+        self.assertEqual(payment.gateway_transid, 'P1')
+        self.assertEqual(Subscription.objects.get(business=self.business).days_left, 44)
+
+    def test_webhook_with_wrong_checksum_is_refused(self):
+        self.start_payment()
+        self.assertEqual(self.webhook(self.paid(), key='wrong').status_code, 403)
+        self.assertEqual(SubscriptionPayment.objects.get().status, 'pending')
+
+    def test_webhook_with_too_small_amount_is_ignored(self):
+        self.start_payment()
+        self.webhook(self.paid(collectedAmount='100'))
+        self.assertEqual(SubscriptionPayment.objects.get().status, 'pending')
+
+    def test_webhook_for_unknown_number_is_ignored(self):
+        self.assertEqual(self.webhook(self.paid(orderReference='999', paymentReference='X')).status_code, 200)
+
+    def test_checksum_sorts_keys_at_every_level(self):
+        a = {'b': 1, 'a': {'d': 'x', 'c': [{'f': 2, 'e': 3}]}}
+        b = {'a': {'c': [{'e': 3, 'f': 2}], 'd': 'x'}, 'b': 1, 'checksumMethod': 'canonical'}
+        with self.settings(CLICKPESA_CHECKSUM_KEY='k'):
+            self.assertEqual(clickpesa.checksum(a), clickpesa.checksum(b))

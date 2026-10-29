@@ -78,6 +78,7 @@ class SubscriptionPayment(models.Model):
         TIGOPESA = 'tigopesa', 'Mixx by Yas (Tigo Pesa)'
         AIRTELMONEY = 'airtelmoney', 'Airtel Money'
         HALOPESA = 'halopesa', 'HaloPesa'
+        CONTROL_NUMBER = 'controlnumber', 'Control number'
         MANUAL = 'manual', 'Manual / Bank'
 
     class Status(models.TextChoices):
@@ -90,13 +91,16 @@ class SubscriptionPayment(models.Model):
     )
     plan = models.ForeignKey(Plan, on_delete=models.PROTECT)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
-    phone = models.CharField(max_length=20)
+    # Empty for a control number, which can be paid from any phone
+    phone = models.CharField(max_length=20, blank=True)
     provider = models.CharField(max_length=20, choices=Provider.choices)
     reference = models.CharField(max_length=40, unique=True, editable=False)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     # Filled when the payment goes through SonicPesa (mobile money Push USSD)
     gateway_order_id = models.CharField(max_length=60, blank=True, db_index=True)
     gateway_transid = models.CharField(max_length=60, blank=True)
+    # Filled when the payment goes through ClickPesa BillPay: the number the payer types into mobile money
+    control_number = models.CharField(max_length=40, blank=True, db_index=True)
     failure_reason = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)

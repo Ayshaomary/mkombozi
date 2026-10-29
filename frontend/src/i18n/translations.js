@@ -427,6 +427,7 @@ export const translations = {
       halopesa: 'HaloPesa',
       bank: 'Bank / Card',
       credit: 'Credit (owed)',
+      controlnumber: 'Control number',
       manual: 'Manual / Bank',
     },
     sales: {
@@ -542,6 +543,21 @@ export const translations = {
       renew: 'Pay now',
       ownerOnly: 'Only the business owner can pay.',
       currentPlan: 'Current plan',
+      getNumber: 'Get control number',
+      controlNumberHint: 'You will get a number you can pay from any mobile money network or CRDB bank.',
+      controlNumberTitle: 'Your control number',
+      controlNumber: 'Control number',
+      controlNumberAmount: 'Pay exactly {amount}. Your subscription starts as soon as the payment arrives.',
+      copy: 'Copy',
+      copied: 'Copied',
+      howToPay: 'How to pay',
+      payStep: 'Dial {dial}, choose "{menu}", enter business number {business}, then the control number, the amount and your PIN.',
+      payStepCrdb:
+        'Dial *150*03#, choose SimBanking, then Pay Bills → Taasisi → Nyinginezo → CLICKPESA. Enter the control number and the amount.',
+      crdb: 'CRDB Bank',
+      waitingForPayment:
+        'Waiting for your payment… You can close this window and pay later: the number stays in your payment history.',
+      show: 'Show',
     },
     recurring: {
       title: 'Recurring expenses',
@@ -1025,6 +1041,7 @@ export const translations = {
       halopesa: 'HaloPesa',
       bank: 'Benki / Kadi',
       credit: 'Mkopo (deni)',
+      controlnumber: 'Namba ya malipo',
       manual: 'Benki / Mkono kwa mkono',
     },
     sales: {
@@ -1140,6 +1157,21 @@ export const translations = {
       renew: 'Lipia sasa',
       ownerOnly: 'Mmiliki wa biashara pekee ndiye anaweza kulipa.',
       currentPlan: 'Kifurushi cha sasa',
+      getNumber: 'Pata namba ya malipo',
+      controlNumberHint: 'Utapata namba ya kulipia kupitia mtandao wowote wa simu au benki ya CRDB.',
+      controlNumberTitle: 'Namba yako ya malipo',
+      controlNumber: 'Namba ya malipo',
+      controlNumberAmount: 'Lipa {amount} kamili. Kifurushi chako kitawashwa mara malipo yatakapofika.',
+      copy: 'Nakili',
+      copied: 'Imenakiliwa',
+      howToPay: 'Jinsi ya kulipa',
+      payStep: 'Piga {dial}, chagua "{menu}", weka namba ya kampuni {business}, kisha namba ya malipo, kiasi na PIN yako.',
+      payStepCrdb:
+        'Piga *150*03#, chagua SimBanking, kisha Lipia Bili → Taasisi → Nyinginezo → CLICKPESA. Weka namba ya malipo na kiasi.',
+      crdb: 'Benki ya CRDB',
+      waitingForPayment:
+        'Tunasubiri malipo yako… Unaweza kufunga dirisha hili na kulipa baadaye: namba itabaki kwenye historia ya malipo.',
+      show: 'Onyesha',
     },
     recurring: {
       title: 'Matumizi ya kujirudia',

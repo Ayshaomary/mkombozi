@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 from accounts.serializers import clean_phone
 
+from . import clickpesa
 from .models import NETWORK_PREFIXES, Plan, Subscription, SubscriptionPayment
 
 
@@ -33,9 +34,9 @@ class SubscriptionPaymentSerializer(serializers.ModelSerializer):
         model = SubscriptionPayment
         fields = [
             'id', 'plan', 'plan_name', 'amount', 'phone', 'provider',
-            'reference', 'status', 'push_sent', 'created_at', 'completed_at',
+            'reference', 'control_number', 'status', 'push_sent', 'created_at', 'completed_at',
         ]
-        read_only_fields = ['amount', 'reference', 'status', 'created_at', 'completed_at']
+        read_only_fields = ['amount', 'reference', 'control_number', 'status', 'created_at', 'completed_at']
 
     def get_push_sent(self, payment):
         return bool(payment.gateway_order_id)
@@ -45,7 +46,15 @@ class SubscriptionPaymentSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         provider = attrs.get('provider')
+        if provider == SubscriptionPayment.Provider.CONTROL_NUMBER:
+            if not clickpesa.is_enabled():
+                raise serializers.ValidationError({'provider': 'Paying by control number is not available yet.'})
+            # Anyone can pay a control number from any phone, so no number is needed
+            attrs['phone'] = ''
+            return attrs
         if provider == SubscriptionPayment.Provider.MANUAL:
+            if not attrs.get('phone'):
+                raise serializers.ValidationError({'phone': 'Enter the phone number you paid from.'})
             return attrs
         # Mobile money needs a Tanzanian number from the chosen network, e.g. M-Pesa: 074...
         match = re.fullmatch(r'\+255(\d{2})\d{7}', attrs.get('phone', ''))

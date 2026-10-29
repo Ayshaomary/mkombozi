@@ -215,6 +215,16 @@ SONICPESA_API_SECRET = os.environ.get('SONICPESA_API_SECRET', '')
 SONICPESA_BASE_URL = os.environ.get('SONICPESA_BASE_URL', 'https://api.sonicpesa.com/api/v1')
 # SonicPesa asks for the payer's email; most of our users only have a phone number
 SONICPESA_BUYER_EMAIL = os.environ.get('SONICPESA_BUYER_EMAIL', 'payments@mukombozi.app')
+# ClickPesa BillPay control numbers (keys from ClickPesa's Dashboard > Settings > Developers).
+# Without the client id and API key, the app doesn't offer control numbers.
+CLICKPESA_CLIENT_ID = os.environ.get('CLICKPESA_CLIENT_ID', '')
+CLICKPESA_API_KEY = os.environ.get('CLICKPESA_API_KEY', '')
+# Checks that a webhook really came from ClickPesa. Without it, webhooks are refused and the app
+# asks ClickPesa itself whether a control number was paid.
+CLICKPESA_CHECKSUM_KEY = os.environ.get('CLICKPESA_CHECKSUM_KEY', '')
+CLICKPESA_BASE_URL = os.environ.get('CLICKPESA_BASE_URL', 'https://api.clickpesa.com')
+# M-Pesa pays control numbers through your own merchant number, which ClickPesa gives you at onboarding
+CLICKPESA_MPESA_BUSINESS_NUMBER = os.environ.get('CLICKPESA_MPESA_BUSINESS_NUMBER', '')
 # Beem Africa SMS, used for password reset codes (keys from the Beem dashboard).
 # Without keys, SMS are printed in the terminal while DEBUG is on, and refused when it is off.
 BEEM_API_KEY = os.environ.get('BEEM_API_KEY', '')
@@ -226,6 +236,7 @@ BEEM_SMS_URL = os.environ.get('BEEM_SMS_URL', 'https://apisms.beem.africa/v1/sen
 if 'test' in sys.argv:
     # Tests must never send real payment requests or SMS
     SONICPESA_API_KEY = SONICPESA_API_SECRET = ''
+    CLICKPESA_CLIENT_ID = CLICKPESA_API_KEY = CLICKPESA_CHECKSUM_KEY = ''
     BEEM_API_KEY = BEEM_SECRET_KEY = ''
 
 

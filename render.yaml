@@ -50,6 +50,17 @@ services:
         sync: false
       - key: SONICPESA_API_SECRET
         sync: false
+      # ClickPesa BillPay keys, for control numbers (from ClickPesa > Settings > Developers).
+      # Webhook URL to set in ClickPesa for PAYMENT RECEIVED and PAYMENT FAILED:
+      # https://mukombozi-api.onrender.com/api/subscription/clickpesa/webhook/
+      - key: CLICKPESA_CLIENT_ID
+        sync: false
+      - key: CLICKPESA_API_KEY
+        sync: false
+      - key: CLICKPESA_CHECKSUM_KEY
+        sync: false
+      - key: CLICKPESA_MPESA_BUSINESS_NUMBER
+        sync: false
       # Beem Africa SMS keys, for "forgot password" codes. Without them, password reset by SMS is off.
       - key: BEEM_API_KEY
         sync: false

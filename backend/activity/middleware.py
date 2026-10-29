@@ -22,7 +22,10 @@ WRITE_METHODS = {'POST', 'PUT', 'PATCH', 'DELETE'}
 
 # Too frequent or not done by a person, so not worth a line each.
 # The admin dashboard (/api/admin/) writes its own, more detailed lines.
-SKIP_PATHS = ('/api/auth/refresh/', '/api/notifications/', '/api/subscription/sonicpesa/webhook/', '/api/admin/')
+SKIP_PATHS = (
+    '/api/auth/refresh/', '/api/notifications/', '/api/subscription/sonicpesa/webhook/',
+    '/api/subscription/clickpesa/webhook/', '/api/admin/',
+)
 
 # Paths whose request has the phone number of a user who isn't logged in yet
 PHONE_PATHS = ('/api/auth/login/', '/api/auth/password-reset/', '/api/auth/password-reset/confirm/')

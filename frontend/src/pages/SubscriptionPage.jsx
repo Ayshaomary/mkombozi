@@ -4,7 +4,7 @@ import { Badge, Button, Card, EmptyState, ErrorBox, Loading, Modal, PageHeader, 
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { api } from '../lib/api'
-import { NETWORK_PREFIXES, phonePrefix, SUBSCRIPTION_PROVIDERS } from '../lib/constants'
+import { CONTROL_NUMBER_NETWORKS, NETWORK_PREFIXES, phonePrefix, SUBSCRIPTION_PROVIDERS } from '../lib/constants'
 import { formatDate, formatMoney } from '../lib/format'
 import { useApi } from '../lib/useApi'
 
@@ -13,6 +13,8 @@ const PAYMENT_TONES = { pending: 'warn', completed: 'good', failed: 'bad' }
 // After the Push USSD is sent, check every few seconds whether the payer approved it on their phone
 const CHECK_EVERY_MS = 5000
 const STOP_CHECKING_AFTER_MS = 3 * 60 * 1000
+// A control number can take a while: the payer has to open mobile money and type it in
+const STOP_CHECKING_CONTROL_NUMBER_AFTER_MS = 15 * 60 * 1000
 
 function PaymentResult({ title, icon, tone, text, onClose, action }) {
   const { t } = useLanguage()
@@ -39,9 +41,110 @@ function PaymentResult({ title, icon, tone, text, onClose, action }) {
   )
 }
 
+// Shows a control number, how to pay it on each network, and waits for the payment to arrive
+function ControlNumberModal({ payment: initial, onClose, onDone }) {
+  const { t } = useLanguage()
+  const { subscription } = useAuth()
+  const [payment, setPayment] = useState(initial)
+  const [copied, setCopied] = useState(false)
+
+  const pending = payment.status === 'pending'
+  const paymentId = payment.id
+
+  useEffect(() => {
+    if (!pending) return
+    const started = Date.now()
+    const timer = setInterval(async () => {
+      if (Date.now() - started > STOP_CHECKING_CONTROL_NUMBER_AFTER_MS) {
+        clearInterval(timer)
+        return
+      }
+      try {
+        const latest = await api.get(`/subscription/payments/${paymentId}/`)
+        if (latest.status !== 'pending') {
+          setPayment(latest)
+          onDone()
+        }
+      } catch {
+        // A failed check is not a failed payment; try again on the next tick
+      }
+    }, CHECK_EVERY_MS)
+    return () => clearInterval(timer)
+  }, [pending, paymentId, onDone])
+
+  if (payment.status === 'completed') {
+    return (
+      <PaymentResult
+        title={t('subscription.paidTitle')}
+        icon="check"
+        tone="good"
+        text={t('subscription.paidText', { plan: payment.plan_name })}
+        onClose={onClose}
+      />
+    )
+  }
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(payment.control_number)
+      setCopied(true)
+    } catch {
+      // Copying can be blocked by the browser; the number can still be selected by hand
+    }
+  }
+
+  // M-Pesa's business number is the merchant's own, so its steps only show once it is set on the server
+  const mpesaNumber = subscription?.control_numbers?.mpesa_business_number
+  const networks = CONTROL_NUMBER_NETWORKS.map((n) => (n.provider === 'mpesa' ? { ...n, business: mpesaNumber } : n)).filter(
+    (n) => n.business,
+  )
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={t('subscription.controlNumberTitle')}
+      footer={<Button onClick={onClose}>{t('common.close')}</Button>}
+    >
+      <div className="space-y-4">
+        <div className="rounded-xl bg-brand-soft p-4 text-center">
+          <p className="text-sm text-brand-ink">{t('subscription.controlNumber')}</p>
+          <p className="tabular mt-1 text-3xl font-bold tracking-wider text-ink select-all">{payment.control_number}</p>
+          <Button variant="secondary" size="sm" className="mt-3" icon={copied ? 'check' : undefined} onClick={copy}>
+            {copied ? t('subscription.copied') : t('subscription.copy')}
+          </Button>
+        </div>
+        <p className="text-sm text-ink-2">
+          {t('subscription.controlNumberAmount', { amount: formatMoney(payment.amount) })}
+        </p>
+        <div>
+          <h3 className="mb-2 text-sm font-semibold text-ink">{t('subscription.howToPay')}</h3>
+          <ul className="space-y-2 text-sm text-ink-2">
+            {networks.map((n) => (
+              <li key={n.provider}>
+                <span className="font-medium text-ink">{t(`payment.${n.provider}`)}:</span>{' '}
+                {t('subscription.payStep', { dial: n.dial, menu: n.menu, business: n.business })}
+              </li>
+            ))}
+            <li>
+              <span className="font-medium text-ink">{t('subscription.crdb')}:</span> {t('subscription.payStepCrdb')}
+            </li>
+          </ul>
+        </div>
+        {pending && (
+          <p className="flex items-center gap-2 text-xs text-muted">
+            <Spinner size={14} />
+            {t('subscription.waitingForPayment')}
+          </p>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
 function PayModal({ plan, onClose, onDone }) {
   const { t } = useLanguage()
-  const { user } = useAuth()
+  const { user, subscription } = useAuth()
   const [form, setForm] = useState({ provider: 'mpesa', phone: user.phone })
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -50,6 +153,9 @@ function PayModal({ plan, onClose, onDone }) {
 
   const waiting = Boolean(payment?.push_sent && payment.status === 'pending')
   const paymentId = payment?.id
+
+  const providers = SUBSCRIPTION_PROVIDERS.filter((p) => p !== 'controlnumber' || subscription?.control_numbers?.enabled)
+  const isControlNumber = form.provider === 'controlnumber'
 
   // The number must belong to the chosen network, e.g. M-Pesa: 074, 075, 076 or 079
   const prefixes = NETWORK_PREFIXES[form.provider]
@@ -99,6 +205,10 @@ function PayModal({ plan, onClose, onDone }) {
   const tryAgain = () => {
     setPayment(null)
     setTimedOut(false)
+  }
+
+  if (payment?.control_number) {
+    return <ControlNumberModal payment={payment} onClose={onClose} onDone={onDone} />
   }
 
   if (payment?.status === 'completed') {
@@ -165,7 +275,7 @@ function PayModal({ plan, onClose, onDone }) {
             {t('common.cancel')}
           </Button>
           <Button type="submit" form="pay-form" loading={saving} disabled={wrongNetwork}>
-            {t('subscription.confirmPay')}
+            {isControlNumber ? t('subscription.getNumber') : t('subscription.confirmPay')}
           </Button>
         </>
       }
@@ -177,16 +287,20 @@ function PayModal({ plan, onClose, onDone }) {
           label={t('subscription.provider')}
           value={form.provider}
           onChange={(e) => setForm({ ...form, provider: e.target.value })}
-          options={SUBSCRIPTION_PROVIDERS.map((p) => ({ value: p, label: t(`payment.${p}`) }))}
+          options={providers.map((p) => ({ value: p, label: t(`payment.${p}`) }))}
         />
-        <PhoneInput
-          label={t('subscription.payPhone')}
-          value={form.phone}
-          onChange={(e) => setForm({ ...form, phone: e.target.value })}
-          hint={prefixes && t('subscription.prefixHint', { network: t(`payment.${form.provider}`), prefixes: prefixList })}
-          error={phoneError}
-          required
-        />
+        {isControlNumber ? (
+          <p className="text-sm text-ink-2">{t('subscription.controlNumberHint')}</p>
+        ) : (
+          <PhoneInput
+            label={t('subscription.payPhone')}
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            hint={prefixes && t('subscription.prefixHint', { network: t(`payment.${form.provider}`), prefixes: prefixList })}
+            error={phoneError}
+            required
+          />
+        )}
       </form>
     </Modal>
   )
@@ -198,6 +312,7 @@ export default function SubscriptionPage() {
   const plans = useApi('/subscription/plans/')
   const payments = useApi('/subscription/payments/')
   const [payingFor, setPayingFor] = useState(null)
+  const [showingNumber, setShowingNumber] = useState(null)
   const reloadPayments = payments.reload
   const handlePaymentChange = useCallback(() => {
     reloadPayments()
@@ -265,12 +380,22 @@ export default function SubscriptionPage() {
                 <div className="min-w-0">
                   <p className="font-medium text-ink">{p.plan_name}</p>
                   <p className="truncate text-xs text-muted">
-                    {formatDate(p.created_at, lang)} · {t(`payment.${p.provider}`)} · {t('subscription.reference')}: {p.reference}
+                    {formatDate(p.created_at, lang)} · {t(`payment.${p.provider}`)} ·{' '}
+                    {p.control_number
+                      ? `${t('subscription.controlNumber')}: ${p.control_number}`
+                      : `${t('subscription.reference')}: ${p.reference}`}
                   </p>
                 </div>
-                <div className="shrink-0 text-right">
-                  <p className="tabular font-semibold text-ink">{formatMoney(p.amount)}</p>
-                  <Badge tone={PAYMENT_TONES[p.status]}>{t(`subscription.${p.status}`)}</Badge>
+                <div className="flex shrink-0 items-center gap-3">
+                  {p.control_number && p.status === 'pending' && (
+                    <Button variant="secondary" size="sm" onClick={() => setShowingNumber(p)}>
+                      {t('subscription.show')}
+                    </Button>
+                  )}
+                  <div className="text-right">
+                    <p className="tabular font-semibold text-ink">{formatMoney(p.amount)}</p>
+                    <Badge tone={PAYMENT_TONES[p.status]}>{t(`subscription.${p.status}`)}</Badge>
+                  </div>
                 </div>
               </li>
             ))}
@@ -282,6 +407,14 @@ export default function SubscriptionPage() {
         <PayModal
           plan={payingFor}
           onClose={() => setPayingFor(null)}
+          onDone={handlePaymentChange}
+        />
+      )}
+
+      {showingNumber && (
+        <ControlNumberModal
+          payment={showingNumber}
+          onClose={() => setShowingNumber(null)}
           onDone={handlePaymentChange}
         />
       )}
