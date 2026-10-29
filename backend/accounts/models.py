@@ -28,6 +28,10 @@ class Business(models.Model):
     business_type = models.CharField(max_length=20, choices=Type.choices, default=Type.OTHER)
     phone = models.CharField(max_length=20, blank=True)
     location = models.CharField(max_length=150, blank=True)
+    # Shown at the top of printed lists and receipts, with the owner's profile photo
+    description = models.CharField(max_length=300, blank=True)
+    address = models.CharField(max_length=255, blank=True)
+    email = models.EmailField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     # When the automatic tasks (recurring expenses, alerts) last ran for this business
     automations_ran_at = models.DateTimeField(null=True, blank=True, editable=False)

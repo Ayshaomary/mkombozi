@@ -1,11 +1,30 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { formatDateTime } from '../lib/format'
+import Letterhead from './Letterhead'
 import { Button } from './ui'
 
-// Prints a list as a clean table: the shop's name, the list's title, every row and the totals.
+// Don't hold up printing for a photo that is slow to arrive
+const IMAGE_WAIT_MS = 3000
+
+// Resolves once every picture in `element` has loaded (or failed), so it is on the paper
+function imagesLoaded(element) {
+  const pending = [...(element?.querySelectorAll('img') ?? [])].filter((img) => !img.complete)
+  const loaded = Promise.all(
+    pending.map(
+      (img) =>
+        new Promise((resolve) => {
+          img.addEventListener('load', resolve, { once: true })
+          img.addEventListener('error', resolve, { once: true })
+        }),
+    ),
+  )
+  return Promise.race([loaded, new Promise((resolve) => setTimeout(resolve, IMAGE_WAIT_MS))])
+}
+
+// Prints a list as a clean table: the shop's letterhead, the list's title, every row and the totals.
 //   load():  a promise of { rows, total }, e.g. fetchAll('/sales/', params) from lib/useApi.js
 //   columns: [{ label, value: (row) => text, align: 'right' }]
 //   footer:  (rows, total) => [[label, value], ...]  (optional)
@@ -14,6 +33,7 @@ export default function PrintButton({ title, subtitle, load, columns, footer }) 
   const { user } = useAuth()
   const [sheet, setSheet] = useState(null)
   const [loading, setLoading] = useState(false)
+  const sheetRef = useRef(null)
 
   const print = async () => {
     setLoading(true)
@@ -26,14 +46,18 @@ export default function PrintButton({ title, subtitle, load, columns, footer }) 
     }
   }
 
-  // Once the table is on the page, open the browser's print window (also "Save as PDF")
+  // Once the table and the owner's photo are on the page, open the browser's print window (also "Save as PDF")
   useEffect(() => {
     if (!sheet) return
+    let cancelled = false
     const done = () => setSheet(null)
     document.body.classList.add('printing-list')
     window.addEventListener('afterprint', done, { once: true })
-    window.print()
+    imagesLoaded(sheetRef.current).then(() => {
+      if (!cancelled) window.print()
+    })
     return () => {
+      cancelled = true
       window.removeEventListener('afterprint', done)
       document.body.classList.remove('printing-list')
     }
@@ -46,9 +70,11 @@ export default function PrintButton({ title, subtitle, load, columns, footer }) 
       </Button>
       {sheet &&
         createPortal(
-          <div className="print-area print-sheet">
+          <div ref={sheetRef} className="print-area print-sheet">
             <header>
-              <h1>{user.business?.name}</h1>
+              <div className="mb-2 border-b border-black pb-2">
+                <Letterhead business={user.business} />
+              </div>
               <h2>{title}</h2>
               {subtitle && <p>{subtitle}</p>}
               <p>

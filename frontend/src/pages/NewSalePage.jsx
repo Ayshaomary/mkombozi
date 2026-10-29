@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import Icon from '../components/Icon'
+import Letterhead from '../components/Letterhead'
 import { useNotifications } from '../components/Notifications'
 import { Badge, Button, Card, EmptyState, ErrorBox, Input, Loading, Modal, PageHeader, PhoneInput, Select } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
@@ -39,8 +40,7 @@ function Receipt({ sale, onClose }) {
       )}
       <div className="print-area text-sm">
         <div className="mb-3 text-center">
-          <p className="text-base font-bold text-ink">{user.business?.name}</p>
-          {user.business?.location && <p className="text-muted">{user.business.location}</p>}
+          <Letterhead business={user.business} centered />
           <p className="mt-2 text-ink-2">
             {t('pos.receipt')} {sale.receipt_number} · {formatDateTime(sale.sold_at, lang)}
           </p>

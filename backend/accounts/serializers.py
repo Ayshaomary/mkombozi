@@ -24,10 +24,20 @@ def tokens_for(user):
 
 
 class BusinessSerializer(serializers.ModelSerializer):
+    # The owner's profile photo, printed at the top of lists and receipts whoever prints them
+    owner_avatar_key = serializers.SerializerMethodField()
+
     class Meta:
         model = Business
-        fields = ['id', 'name', 'business_type', 'phone', 'location', 'created_at']
+        fields = [
+            'id', 'name', 'business_type', 'phone', 'location', 'description', 'address', 'email',
+            'owner_avatar_key', 'created_at',
+        ]
         read_only_fields = ['created_at']
+
+    def get_owner_avatar_key(self, business):
+        owner = business.users.filter(role=User.Role.OWNER).order_by('date_joined').only('avatar_key').first()
+        return str(owner.avatar_key) if owner and owner.avatar_key else None
 
     def validate_phone(self, value):
         return clean_phone(value)

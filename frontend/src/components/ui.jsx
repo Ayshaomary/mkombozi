@@ -29,8 +29,9 @@ export function Button({ variant = 'primary', size = 'md', icon, loading, classN
   )
 }
 
-const fieldClass =
-  'w-full rounded-lg border bg-card px-3 h-10 text-sm text-ink placeholder:text-muted focus:outline-2 focus:outline-offset-0 focus:outline-brand'
+const fieldBase =
+  'w-full rounded-lg border bg-card px-3 text-sm text-ink placeholder:text-muted focus:outline-2 focus:outline-offset-0 focus:outline-brand'
+const fieldClass = `${fieldBase} h-10`
 
 function FieldWrapper({ id, label, error, hint, children, className = '' }) {
   return (
@@ -57,6 +58,21 @@ export function Input({ label, error, hint, className, ...props }) {
       <input
         id={id}
         className={`${fieldClass} ${error ? 'border-bad' : 'border-line-strong'}`}
+        aria-invalid={Boolean(error)}
+        {...props}
+      />
+    </FieldWrapper>
+  )
+}
+
+export function TextArea({ label, error, hint, className, rows = 3, ...props }) {
+  const id = useId()
+  return (
+    <FieldWrapper id={id} label={label} error={error} hint={hint} className={className}>
+      <textarea
+        id={id}
+        rows={rows}
+        className={`${fieldBase} py-2 ${error ? 'border-bad' : 'border-line-strong'}`}
         aria-invalid={Boolean(error)}
         {...props}
       />

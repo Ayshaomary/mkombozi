@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import Avatar from '../components/Avatar'
 import PermissionPicker from '../components/PermissionPicker'
-import { Badge, Button, Card, EmptyState, ErrorBox, Input, Loading, Modal, PageHeader, PhoneInput, SaveRow, Select } from '../components/ui'
+import { Badge, Button, Card, EmptyState, ErrorBox, Input, Loading, Modal, PageHeader, PhoneInput, SaveRow, Select, TextArea } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../i18n/LanguageContext'
 import { api } from '../lib/api'
@@ -19,6 +19,9 @@ function BusinessForm() {
       business_type: user.business.business_type,
       phone: user.business.phone,
       location: user.business.location,
+      description: user.business.description,
+      address: user.business.address,
+      email: user.business.email,
     },
     async (form) => {
       await api.patch('/business/', form)
@@ -37,6 +40,10 @@ function BusinessForm() {
         />
         <PhoneInput label={t('settings.businessPhone')} {...field('phone')} />
         <Input label={t('auth.businessLocation')} {...field('location')} />
+        <TextArea label={t('settings.businessDescription')} maxLength={300} {...field('description')} />
+        <Input label={t('settings.businessAddress')} maxLength={255} {...field('address')} />
+        <Input label={t('settings.businessEmail')} type="email" {...field('email')} />
+        <p className="text-xs text-muted">{t('settings.letterheadHint')}</p>
         <SaveRow {...state} />
       </form>
     </Card>
