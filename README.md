@@ -158,29 +158,40 @@ mkombozi/
 
 ## Putting it online with Render
 
-`render.yaml` (a Render "Blueprint") creates 3 things in the Frankfurt region, the closest to Tanzania:
+The database is on **Neon** (free and permanent). `render.yaml` (a Render "Blueprint") creates the other 2 parts in the Frankfurt region, the closest to Tanzania:
 
-| Name | What | Notes |
-|---|---|---|
-| `mukombozi-db` | PostgreSQL 16 database | |
-| `mukombozi-api` | Django API, run by gunicorn | `backend/build.sh` installs packages, collects static files, migrates and creates the admin account |
-| `mukombozi` | React website (static site) | forwards `/api/*` to `mukombozi-api`, so no CORS setup is needed |
+| Name | Where | What | Notes |
+|---|---|---|---|
+| your Neon project | Neon, AWS Europe Central (Frankfurt) | PostgreSQL database | free: 1 GB, pauses after 5 idle minutes and wakes in about a second |
+| `mukombozi-api` | Render | Django API, run by gunicorn | `backend/build.sh` installs packages, collects static files, migrates and creates the admin account |
+| `mukombozi` | Render | React website (static site) | forwards `/api/*` to `mukombozi-api`, so no CORS setup is needed |
 
 ### Steps
 
 1. Push your code: `git push`
-2. Go to **https://render.com**, sign up with your GitHub account, and allow Render to see the `mkombozi` repository.
-3. In the Render dashboard, click **New → Blueprint** and choose the `mkombozi` repository.
-4. Render asks for 3 values for the admin account: `DJANGO_SUPERUSER_PHONE` (e.g. `0695517348`), `DJANGO_SUPERUSER_FIRST_NAME` and `DJANGO_SUPERUSER_PASSWORD`. Fill them in and click **Apply**.
-5. Wait 5–10 minutes for the first deploy. Then open the `mukombozi` service and click its URL (e.g. `https://mukombozi.onrender.com`).
+2. Go to **https://neon.tech**, sign up, and create a project in **AWS Europe Central (Frankfurt)**. Click **Connect**, turn **Connection pooling** off, and copy the connection URL.
+3. Go to **https://render.com**, sign up with your GitHub account, and allow Render to see the `mkombozi` repository.
+4. In the Render dashboard, click **New → Blueprint** and choose the `mkombozi` repository.
+5. Render asks for values. Put the Neon URL in `DATABASE_URL`, and fill in the admin account: `DJANGO_SUPERUSER_PHONE` (e.g. `0695517348`), `DJANGO_SUPERUSER_FIRST_NAME` and `DJANGO_SUPERUSER_PASSWORD`. Click **Apply**.
+6. Wait 5–10 minutes for the first deploy. Then open the `mukombozi` service and click its URL (e.g. `https://mukombozi.onrender.com`).
 
 > **Check the API address.** `render.yaml` assumes the API's address is `https://mukombozi-api.onrender.com`. If Render gives it a different address (because the name is taken), change the `destination` line in `render.yaml` to match, then commit and push.
 
 After that, every `git push` to `main` deploys again automatically.
 
-### Free plan limits (checked October 2026; see render.com/pricing)
+### Moving data from a Render database to Neon
 
-- **The free database expires after 30 days.** After a 14-day grace period it's **deleted with all its data**. Use the free plan only for testing. Upgrade the database before real shops use the app.
+The app first used Render's free database, which is deleted 30 days after it was created (plus a 14-day grace period). To copy everything to an empty Neon database and check every table matches:
+
+```bash
+bash backend/scripts/copy_db_to_neon.sh
+```
+
+It asks for both database addresses (hidden as you paste) and only reads from Render. Then put the Neon URL in **Render → mukombozi-api → Environment → `DATABASE_URL`**.
+
+### Free plan limits (checked October 2026; see render.com/pricing and neon.com/pricing)
+
+- **The Neon free database is permanent** but holds 1 GB and has **no daily backups**. Upgrade before many real shops use the app.
 - **The free API sleeps after 15 minutes** without visitors. The next visit takes about a minute to wake it up. To save time, the login page starts waking it as soon as it opens, and someone already logged in sees the app at once with their saved details.
 - **The free API gets about a tenth of a CPU.** Passwords are therefore checked with Argon2 at OWASP's settings (`accounts/hashers.py`), which takes about 0.03 seconds of CPU instead of about 1 second for Django's default.
 - The static website is free and doesn't sleep.

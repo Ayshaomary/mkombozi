@@ -130,8 +130,11 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
 if os.environ.get('DATABASE_URL'):
-    # On Render, the database address comes as one URL: postgresql://user:password@host/name
-    DATABASES = {'default': dj_database_url.parse(os.environ['DATABASE_URL'], conn_max_age=600)}
+    # Online, the database address comes as one URL: postgresql://user:password@host/name
+    # Connections are kept open for speed, but checked first: Neon closes them when it pauses after 5 idle minutes
+    DATABASES = {
+        'default': dj_database_url.parse(os.environ['DATABASE_URL'], conn_max_age=600, conn_health_checks=True)
+    }
 elif os.environ.get('DB_ENGINE') == 'sqlite':
     # Temporary local fallback, e.g. before PostgreSQL is set up
     DATABASES = {
