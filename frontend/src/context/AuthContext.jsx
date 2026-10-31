@@ -26,10 +26,12 @@ function saveUser(user) {
 }
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
+  // With a saved login, the app opens at once with the details from last time, and they are
+  // checked with the server in the background (which can take a minute while it wakes up)
+  const [user, setUser] = useState(() => (getTokens() ? savedUser() : null))
   const [subscription, setSubscription] = useState(null)
-  // True until we know whether a saved login is still valid
-  const [loading, setLoading] = useState(() => Boolean(getTokens()))
+  // True until we know whether a saved login is still valid, when there are no saved details to show
+  const [loading, setLoading] = useState(() => Boolean(getTokens()) && !savedUser())
 
   const loadSubscription = useCallback(async () => {
     try {
@@ -61,8 +63,8 @@ export function AuthProvider({ children }) {
     refreshUser()
       .then(loadSubscription)
       .catch((err) => {
-        // No internet: stay logged in with the saved details instead of logging out
-        const saved = err.status === 0 && savedUser()
+        // No internet, or the server is waking up or being updated: stay logged in with the saved details
+        const saved = (err.status === 0 || err.status >= 500) && savedUser()
         if (saved) setUser(saved)
         else logout()
       })
@@ -79,7 +81,8 @@ export function AuthProvider({ children }) {
     setTokens({ access: data.access, refresh: data.refresh })
     setUser(data.user)
     saveUser(data.user)
-    await loadSubscription()
+    // Not waited for: the app opens now and the subscription banner shows when it arrives
+    loadSubscription()
     return data.user
   }
 

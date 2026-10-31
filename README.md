@@ -181,7 +181,8 @@ After that, every `git push` to `main` deploys again automatically.
 ### Free plan limits (checked October 2026; see render.com/pricing)
 
 - **The free database expires after 30 days.** After a 14-day grace period it's **deleted with all its data**. Use the free plan only for testing. Upgrade the database before real shops use the app.
-- **The free API sleeps after 15 minutes** without visitors. The next visit takes about a minute to wake it up.
+- **The free API sleeps after 15 minutes** without visitors. The next visit takes about a minute to wake it up. To save time, the login page starts waking it as soon as it opens, and someone already logged in sees the app at once with their saved details.
+- **The free API gets about a tenth of a CPU.** Passwords are therefore checked with Argon2 at OWASP's settings (`accounts/hashers.py`), which takes about 0.03 seconds of CPU instead of about 1 second for Django's default.
 - The static website is free and doesn't sleep.
 
 ## Next steps (ideas)

@@ -6,6 +6,8 @@ import { useLanguage } from '../i18n/LanguageContext'
 import { homePath } from '../lib/permissions'
 import AuthShell from './AuthShell'
 
+const SLOW_MS = 5000
+
 export default function LoginPage() {
   const { t } = useLanguage()
   const { login } = useAuth()
@@ -14,17 +16,23 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [slow, setSlow] = useState(false)
 
   const submit = async (event) => {
     event.preventDefault()
     setSaving(true)
     setError(null)
+    // Normally login takes a second; much longer means the server was asleep
+    const slowTimer = setTimeout(() => setSlow(true), SLOW_MS)
     try {
       const user = await login(phone, password)
       navigate(homePath(user))
     } catch (err) {
       setError(err)
       setSaving(false)
+    } finally {
+      clearTimeout(slowTimer)
+      setSlow(false)
     }
   }
 
@@ -56,6 +64,11 @@ export default function LoginPage() {
         <Button type="submit" size="lg" className="w-full" loading={saving}>
           {t('auth.login')}
         </Button>
+        {slow && (
+          <p className="text-center text-sm text-ink-2" role="status">
+            {t('auth.waking')}
+          </p>
+        )}
       </form>
       <p className="mt-5 text-center text-sm text-ink-2">
         {t('auth.noAccount')}{' '}

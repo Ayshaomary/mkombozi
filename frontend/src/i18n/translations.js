@@ -59,6 +59,7 @@ export const translations = {
       shopType: 'Type of shop',
       chooseShopType: 'Choose the type of shop…',
       forgotPassword: 'Forgot password?',
+      waking: 'The server is waking up after a rest. This can take up to a minute, please wait.',
       resetTitle: 'Reset your password',
       resetIntro: 'Enter your phone number. We will send you a 6-digit code by email (if your profile has one) or by SMS.',
       sendCode: 'Send code',
@@ -685,6 +686,7 @@ export const translations = {
       shopType: 'Aina ya duka',
       chooseShopType: 'Chagua aina ya duka…',
       forgotPassword: 'Umesahau nenosiri?',
+      waking: 'Seva inaamka baada ya kupumzika. Inaweza kuchukua hadi dakika moja, tafadhali subiri.',
       resetTitle: 'Badilisha nenosiri',
       resetIntro:
         'Weka namba yako ya simu. Tutakutumia namba ya siri ya tarakimu 6 kwa barua pepe (kama umeiweka kwenye wasifu wako) au kwa SMS.',

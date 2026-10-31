@@ -1,9 +1,12 @@
+import { useEffect } from 'react'
 import { LanguageToggle, Logo } from '../components/Layout'
 import { useLanguage } from '../i18n/LanguageContext'
+import { wakeServer } from '../lib/api'
 
 // The frame around the login and register forms
 export default function AuthShell({ title, children }) {
   const { t } = useLanguage()
+  useEffect(wakeServer, [])
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">

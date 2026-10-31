@@ -3,6 +3,8 @@ import re
 from datetime import timedelta
 from unittest import mock
 
+from django.conf import settings
+from django.contrib.auth.hashers import PBKDF2PasswordHasher
 from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.utils import timezone
@@ -90,6 +92,21 @@ class RegisterAndLoginTests(TestCase):
         self.assertEqual(response.status_code, 200, response.data)
         self.assertIn('access', response.data)
         self.assertEqual(response.data['user']['business']['name'], 'Duka la Amina')
+
+    @override_settings(PASSWORD_HASHERS=settings.PASSWORD_HASHERS_LIVE)
+    def test_old_password_still_works_and_moves_to_argon2(self):
+        self.register()
+        user = User.objects.get(phone='+255754111222')
+        # As saved before Argon2 (with fewer rounds, so the test stays quick)
+        user.password = PBKDF2PasswordHasher().encode('Mukombozi2026!', 'oldsalt123', iterations=1000)
+        user.save(update_fields=['password'])
+        response = self.client.post(
+            '/api/auth/login/', {'phone': '0754111222', 'password': 'Mukombozi2026!'}, format='json'
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        user.refresh_from_db()
+        self.assertTrue(user.password.startswith('argon2$argon2id$v=19$m=19456,t=2,p=1$'))
+        self.assertTrue(user.check_password('Mukombozi2026!'))
 
     def test_wrong_password_rejected(self):
         self.register()

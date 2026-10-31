@@ -157,7 +157,15 @@ else:
 AUTH_USER_MODEL = 'accounts.User'
 AUTHENTICATION_BACKENDS = ['accounts.backends.PhoneBackend']
 
+# New passwords use the first hasher (fast enough for a small server, see accounts/hashers.py).
+# Older passwords made with PBKDF2 still work, and are changed to Argon2 the next time that person logs in.
+PASSWORD_HASHERS = PASSWORD_HASHERS_LIVE = [
+    'accounts.hashers.FastArgon2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+]
+
 # Tests: use a fast (insecure) password hasher so the test suite runs quickly
+# (PASSWORD_HASHERS_LIVE keeps the real list for the test that checks it)
 if 'test' in sys.argv:
     PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
 

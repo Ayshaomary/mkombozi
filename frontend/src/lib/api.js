@@ -112,6 +112,12 @@ export async function request(path, { method = 'GET', body, params, retry = true
   return data
 }
 
+// On Render's free plan the server sleeps after 15 minutes without visitors and takes about a minute
+// to wake up. Calling this when the login page opens starts the waking while the person types.
+export function wakeServer() {
+  fetch(`${BASE_URL}/subscription/plans/`).catch(() => {})
+}
+
 export const api = {
   get: (path, params) => request(path, { params }),
   post: (path, body) => request(path, { method: 'POST', body }),
