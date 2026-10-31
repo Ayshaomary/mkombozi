@@ -79,8 +79,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* When printing a receipt, print only the receipt */
-/* A list being printed (components/PrintButton.jsx): only shown on paper */
+/* A list or receipt being printed (PrintSheet in components/PrintButton.jsx): only shown on paper */
 @page {
   margin: 12mm;
 }
@@ -90,17 +89,31 @@ body {
 }
 
 @media print {
-  body * {
-    visibility: hidden;
+  /* Black on white paper, even when the phone is in dark mode */
+  :root {
+    color-scheme: light;
+    --page: #fff;
+    --card: #fff;
+    --ink: #000;
+    --ink-2: #000;
+    --muted: #333;
+    --line: #999;
+    --line-strong: #999;
   }
-  /* Lists can be many pages long, so the app is taken out and the sheet flows normally */
-  body.printing-list #root {
+  /* The app is taken out, so the sheet starts at the top of the first page and flows over the next ones */
+  body.printing #root {
     display: none;
   }
-  body.printing-list .print-sheet {
+  body.printing .print-sheet {
     display: block;
-    position: static;
     font-size: 11px;
+    color: #000;
+  }
+  /* A receipt keeps its narrow shape, centred on a big page and filling a small receipt printer */
+  body.printing .print-sheet.receipt {
+    max-width: 80mm;
+    margin: 0 auto;
+    font-size: 12px;
   }
   .print-sheet h1 {
     font-size: 16px;
@@ -149,15 +162,5 @@ body {
     justify-content: space-between;
     border-bottom: 1px solid #999;
     padding: 3px 0;
-  }
-  .print-area,
-  .print-area * {
-    visibility: visible;
-    color: #000 !important;
-  }
-  .print-area {
-    position: absolute;
-    inset: 0 auto auto 0;
-    width: 100%;
   }
 }

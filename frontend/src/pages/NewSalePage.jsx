@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import Icon from '../components/Icon'
 import Letterhead from '../components/Letterhead'
 import { useNotifications } from '../components/Notifications'
+import { PrintSheet } from '../components/PrintButton'
 import { Badge, Button, Card, EmptyState, ErrorBox, Input, Loading, Modal, PageHeader, PhoneInput, Select } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useOffline } from '../context/OfflineContext'
@@ -13,9 +14,56 @@ import { useApi } from '../lib/useApi'
 import { newClientId } from '../lib/outbox'
 import { useDebounce } from '../lib/useDebounce'
 
-function Receipt({ sale, onClose }) {
+// The receipt itself: shown in the window after a sale, and printed on its own
+function ReceiptDetails({ sale }) {
   const { t, lang } = useLanguage()
   const { user } = useAuth()
+  return (
+    <>
+      <div className="mb-3 text-center">
+        <Letterhead business={user.business} centered />
+        <p className="mt-2 text-ink-2">
+          {t('pos.receipt')} {sale.receipt_number} · {formatDateTime(sale.sold_at, lang)}
+        </p>
+      </div>
+      <ul className="divide-y divide-dashed divide-line-strong border-y border-dashed border-line-strong">
+        {sale.items.map((item) => (
+          <li key={item.id} className="flex justify-between gap-3 py-2">
+            <span className="text-ink">
+              {item.product_name}
+              <span className="block text-xs text-muted">
+                {formatQuantity(item.quantity)} × {formatMoney(item.unit_price)}
+              </span>
+            </span>
+            <span className="tabular text-ink">{formatMoney(item.subtotal)}</span>
+          </li>
+        ))}
+      </ul>
+      {Number(sale.discount) > 0 && (
+        <p className="mt-2 flex justify-between text-ink-2">
+          <span>{t('pos.discount')}</span>
+          <span className="tabular">-{formatMoney(sale.discount)}</span>
+        </p>
+      )}
+      <p className="mt-2 flex justify-between text-base font-bold text-ink">
+        <span>{t('common.total')}</span>
+        <span className="tabular">{formatMoney(sale.total_amount)}</span>
+      </p>
+      <p className="mt-1 text-ink-2">
+        {t('pos.paymentMethod')}: {t(`payment.${sale.payment_method}`)}
+      </p>
+      {sale.customer_name && (
+        <p className="text-ink-2">
+          {t('sales.customer')}: {sale.customer_name}
+        </p>
+      )}
+    </>
+  )
+}
+
+function Receipt({ sale, onClose }) {
+  const { t } = useLanguage()
+  const [printing, setPrinting] = useState(false)
   return (
     <Modal
       open
@@ -23,7 +71,7 @@ function Receipt({ sale, onClose }) {
       title={sale.offline ? t('pos.savedOffline') : t('pos.success')}
       footer={
         <>
-          <Button variant="secondary" icon="printer" onClick={() => window.print()}>
+          <Button variant="secondary" icon="printer" onClick={() => setPrinting(true)}>
             {t('pos.print')}
           </Button>
           <Button icon="plus" onClick={onClose}>
@@ -38,45 +86,14 @@ function Receipt({ sale, onClose }) {
           {t('pos.savedOfflineText')}
         </p>
       )}
-      <div className="print-area text-sm">
-        <div className="mb-3 text-center">
-          <Letterhead business={user.business} centered />
-          <p className="mt-2 text-ink-2">
-            {t('pos.receipt')} {sale.receipt_number} · {formatDateTime(sale.sold_at, lang)}
-          </p>
-        </div>
-        <ul className="divide-y divide-dashed divide-line-strong border-y border-dashed border-line-strong">
-          {sale.items.map((item) => (
-            <li key={item.id} className="flex justify-between gap-3 py-2">
-              <span className="text-ink">
-                {item.product_name}
-                <span className="block text-xs text-muted">
-                  {formatQuantity(item.quantity)} × {formatMoney(item.unit_price)}
-                </span>
-              </span>
-              <span className="tabular text-ink">{formatMoney(item.subtotal)}</span>
-            </li>
-          ))}
-        </ul>
-        {Number(sale.discount) > 0 && (
-          <p className="mt-2 flex justify-between text-ink-2">
-            <span>{t('pos.discount')}</span>
-            <span className="tabular">-{formatMoney(sale.discount)}</span>
-          </p>
-        )}
-        <p className="mt-2 flex justify-between text-base font-bold text-ink">
-          <span>{t('common.total')}</span>
-          <span className="tabular">{formatMoney(sale.total_amount)}</span>
-        </p>
-        <p className="mt-1 text-ink-2">
-          {t('pos.paymentMethod')}: {t(`payment.${sale.payment_method}`)}
-        </p>
-        {sale.customer_name && (
-          <p className="text-ink-2">
-            {t('sales.customer')}: {sale.customer_name}
-          </p>
-        )}
+      <div className="text-sm">
+        <ReceiptDetails sale={sale} />
       </div>
+      {printing && (
+        <PrintSheet className="receipt" onDone={() => setPrinting(false)}>
+          <ReceiptDetails sale={sale} />
+        </PrintSheet>
+      )}
     </Modal>
   )
 }
